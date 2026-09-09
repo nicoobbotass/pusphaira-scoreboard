@@ -1,6 +1,6 @@
 // Offline cache for the Pusphaira Scoreboard app shell.
 // Bump CACHE when you change index.html so phones pick up the new version.
-const CACHE = "pusphaira-v4";
+const CACHE = "pusphaira-v5";
 const ASSETS = ["index.html", "manifest.webmanifest", "icon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
