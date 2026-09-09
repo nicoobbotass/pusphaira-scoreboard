@@ -14,7 +14,8 @@
   /* ---------- Touchline — coach's tactics board ---------- */
   :root{
     --turf:#1f4a37; --turf-2:#183b2c; --turf-hi:#2f6650; --turf-lo:#132a20;
-    --chalk:#f4f7f2; --chalk-dim:#b4c7bd;
+    --chalk:#f4f7f2; --chalk-dim:#c6d6cc;
+    --field:#16261d;
     --sheet:#eae6d9; --sheet-ink:#1b2a22;
     --flag:#f2c12e; --flag-ink:#20180a;
     --redcard:#d23b2f;
@@ -40,13 +41,14 @@
   }
   button{font:inherit; color:inherit; cursor:pointer; border:0; background:none}
   input[type=text],input[type=number],input[type=date]{
-    font:inherit; color:var(--sheet-ink); background:var(--sheet);
-    border:1px solid var(--turf-lo); border-radius:3px; padding:.55em .7em; width:100%;
-    -webkit-user-select:text; user-select:text; caret-color:var(--turf);
+    font:inherit; color:var(--chalk); background:var(--field);
+    border:1px solid var(--turf-hi); border-radius:6px; padding:.55em .7em; width:100%;
+    -webkit-user-select:text; user-select:text; caret-color:var(--flag);
   }
   input[type=date]{ text-align:center; -webkit-appearance:none; appearance:none; min-height:2.6em }
   input[type=date]::-webkit-date-and-time-value{ text-align:center; width:100%; margin:0 }
   input[type=date]::-webkit-datetime-edit{ text-align:center; width:100%; padding:0 }
+  input[type=date]::-webkit-calendar-picker-indicator{ filter:invert(1) opacity(.55) }
   input:focus{outline:2px solid var(--flag); outline-offset:1px}
 
   .page{max-width:760px; margin:0 auto; padding:16px 15px 96px; position:relative}
@@ -84,13 +86,14 @@
   /* scoreboard — magnet discs carrying flip-board tiles */
   .teams{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px}
   .team{
-    position:relative; text-align:center;
+    position:relative; text-align:center; perspective:600px;
     padding:14px 10px 12px; border-radius:16px;
     border:2px solid color-mix(in srgb, var(--tc,#888) 65%, #000);
     background:
       radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tc,#888) 42%, var(--turf-lo)), color-mix(in srgb, var(--tc,#888) 20%, var(--turf-lo)));
     box-shadow:var(--lift), inset 0 1px 0 rgba(255,255,255,.16);
     min-height:140px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:6px;
+    cursor:pointer;
   }
   .team .name{font-family:var(--sans); font-weight:700; font-size:14px; letter-spacing:0; color:var(--chalk); word-break:break-word}
   .team .score{
@@ -105,6 +108,9 @@
     height:2px; background:rgba(0,0,0,.4); transform:translateY(-1px);
   }
   .team .score{position:relative}
+  .team .score.bump{animation:flap .18s ease-out}
+  @keyframes flap{0%{transform:rotateX(-88deg)}60%{transform:rotateX(7deg)}100%{transform:rotateX(0)}}
+  @media (prefers-reduced-motion:reduce){ .team .score.bump{animation:none} }
   .team .plus{
     display:block; width:100%; margin-top:2px; padding:.55em 0; border:0; border-radius:9px;
     background:var(--chalk); color:var(--turf-lo);
@@ -128,6 +134,7 @@
   .list .item:last-child{border-bottom:0}
   .item .grow{flex:1; min-width:0}
   .item .nm{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .nm[data-player]{text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px; text-decoration-color:var(--turf-hi)}
   .rank{width:30px; text-align:center; font-variant-numeric:tabular-nums; font-weight:700; font-size:15px; color:var(--chalk)}
   .list .item:first-child .rank{background:var(--flag); color:var(--flag-ink); border-radius:4px; padding:2px 0}
   .num{font-variant-numeric:tabular-nums; font-weight:700}
@@ -135,6 +142,17 @@
   .col.num{color:var(--chalk-dim); font-weight:600}
   .col.num.hi{color:var(--chalk); font-weight:800; font-size:18px}
   .delta{color:#9bd9a8; font-size:13px; margin-left:4px}
+  .mv{font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; margin-left:6px}
+  .mv.up{color:#7fd694}  .mv.dn{color:#ff9a8a}  .mv.flat{color:var(--chalk-dim)}
+  .att{font-size:12px; color:var(--chalk-dim); font-variant-numeric:tabular-nums; margin-left:6px; font-weight:600}
+  .chip.away{opacity:.5; border-style:dashed}
+  .pcgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:9px; margin-bottom:12px}
+  .pcstat{background:rgba(255,255,255,.04); border:1px solid var(--turf-hi); border-radius:8px; padding:10px 11px}
+  .pcv{font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--chalk)}
+  .pcsub{font-size:12px; font-weight:600; color:var(--chalk-dim)}
+  .pcl{font-size:11px; color:var(--chalk-dim); margin-top:3px}
+  .spark{margin:2px 0 6px}
+  .sparksvg{width:100%; height:54px; display:block}
 
   /* nav — board strip, active tab marked with a magnet clip */
   .nav{
@@ -143,9 +161,10 @@
     padding-bottom:var(--safe-b);
   }
   .nav button{flex:1; padding:9px 4px 8px; font-family:var(--sans); font-weight:600; font-size:11px; letter-spacing:0; color:var(--chalk-dim); display:flex; flex-direction:column; align-items:center; gap:3px; position:relative}
-  .nav button .ic{font-size:19px; filter:grayscale(1) opacity(.65)}
+  .nav button .ic{display:flex; opacity:.7}
+  .nav button .ic svg{width:21px; height:21px; display:block}
   .nav button.on{color:var(--chalk)}
-  .nav button.on .ic{filter:none}
+  .nav button.on .ic{opacity:1}
   .nav button.on::after{content:""; position:absolute; top:0; left:22%; right:22%; height:3px; background:var(--flag)}
 
   /* modal */
@@ -170,10 +189,10 @@
 <div class="page" id="app"></div>
 
 <div class="nav" id="nav">
-  <button data-go="now"><span class="ic">🎯</span>Now</button>
-  <button data-go="exercises"><span class="ic">📋</span>Exercises</button>
-  <button data-go="players"><span class="ic">👥</span>Players</button>
-  <button data-go="standings"><span class="ic">🏆</span>Standings</button>
+  <button data-go="now"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.5"/><path d="M12 13V8.5M9.5 3h5M18.6 5.6l1.2 1.2"/></svg></span>Now</button>
+  <button data-go="exercises"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.8h6V4M9 10h6M9 14h6M9 18h4"/></svg></span>Exercises</button>
+  <button data-go="players"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.2 20c0-3.3 2.9-5.3 5.8-5.3s5.8 2 5.8 5.3"/><path d="M16.4 6.2a2.9 2.9 0 0 1 0 5.6M16.5 15.2c2.6.3 4.8 2.2 4.8 4.8"/></svg></span>Players</button>
+  <button data-go="standings"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v3.5a5 5 0 0 1-10 0Z"/><path d="M7 5.5H4.2v1A3.2 3.2 0 0 0 7 9.7M17 5.5h2.8v1A3.2 3.2 0 0 1 17 9.7M9.6 14.5h4.8M9 20h6M12 14.5V20"/></svg></span>Standings</button>
 </div>
 
 <div id="modal"></div>
@@ -407,6 +426,91 @@ function historyMonths(){ return historyKeys(monthKey, S.ui.month); }
 function historyWeeks(){ return historyKeys(weekKey, S.ui.week); }
 function assignedInExercise(ex){ const s=new Set(); ex.teams.forEach(t=>t.playerIds.forEach(p=>s.add(p))); return s; }
 
+/* ---------- attendance, record, movement ---------- */
+// Who was at a banked training: explicit presentIds, else anyone put on a team that day.
+function attendedSet(h){
+  const s = new Set(h.presentIds || []);
+  (h.exercises || []).forEach(ex => ex.teams.forEach(t => t.playerIds.forEach(p => s.add(p))));
+  return s;
+}
+function seasonAttendance(){
+  const m = {}; S.roster.forEach(p => m[p.id] = 0);
+  S.history.forEach(h => attendedSet(h).forEach(pid => { if(pid in m) m[pid]++; }));
+  return m;
+}
+function playerRecord(pid){
+  let wins = 0, played = 0;
+  S.history.forEach(h => (h.exercises || []).forEach(ex => {
+    const on = ex.teams.find(t => t.playerIds.includes(pid));
+    if(!on) return;
+    played++;
+    if(new Set(winnersOf(ex)).has(on.id)) wins++;
+  }));
+  return { wins, played };
+}
+function rankFromTotals(tot){
+  const ord = S.roster.slice().sort((a,b)=> (tot[b.id]||0)-(tot[a.id]||0) || a.name.localeCompare(b.name));
+  const r = {}; ord.forEach((p,i)=> r[p.id] = i+1); return r;
+}
+// Ranking as it stood one period earlier, for the movement arrows.
+function prevTotalsFor(period){
+  if(period === "season"){
+    if(!S.history.length) return null;
+    const m = {}; S.roster.forEach(p => m[p.id] = Number(S.startingPoints[p.id]||0));
+    S.history.slice(0,-1).forEach(h => { for(const pid in h.points) if(pid in m) m[pid]+=h.points[pid]; });
+    return m;
+  }
+  const keys = period === "week" ? historyWeeks() : historyMonths();   // newest-first
+  const cur  = period === "week" ? S.ui.week : S.ui.month;
+  const i = keys.indexOf(cur);
+  const prevKey = i >= 0 ? keys[i+1] : keys[0];
+  if(!prevKey) return null;
+  return period === "week" ? weekTotals(prevKey, false) : monthTotals(prevKey, false);
+}
+function movementFor(period, curTotals){
+  const prev = prevTotalsFor(period);
+  if(!prev) return {};
+  const pr = rankFromTotals(prev), cr = rankFromTotals(curTotals);
+  const m = {};
+  S.roster.forEach(p => { m[p.id] = (pr[p.id]||0) - (cr[p.id]||0); });   // + = moved up
+  return m;
+}
+function mvHTML(d){
+  if(d == null) return "";
+  if(d === 0)  return '<span class="mv flat">&ndash;</span>';
+  return d > 0 ? '<span class="mv up">&#9650;'+d+'</span>' : '<span class="mv dn">&#9660;'+(-d)+'</span>';
+}
+function niceDate(iso){
+  const p = (iso||"").split("-"); if(p.length < 3) return iso;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  return isNaN(d) ? iso : d.toLocaleDateString(undefined,{day:"numeric",month:"short"});
+}
+function sparkSVG(vals){
+  const w = 300, hh = 54, pad = 5;
+  const mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
+  const pts = vals.map((v,i)=>{
+    const x = pad + i*(w - 2*pad)/Math.max(vals.length-1,1);
+    const y = hh - pad - (v - mn)/rng*(hh - 2*pad);
+    return x.toFixed(1)+","+y.toFixed(1);
+  }).join(" ");
+  return '<svg viewBox="0 0 '+w+' '+hh+'" preserveAspectRatio="none" class="sparksvg">'
+       + '<polyline points="'+pts+'" fill="none" stroke="var(--flag)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+       + '</svg>';
+}
+// long-press helper: fires fn() after a hold; sets data-lp so the trailing click is swallowed
+function bindLongPress(el, fn){
+  let t = null;
+  const clear = () => { if(t){ clearTimeout(t); t = null; } };
+  el.addEventListener("pointerdown", e => {
+    if(e.target.closest("[data-minus]")) return;
+    delete el.dataset.lp;
+    clear();
+    t = setTimeout(() => { t = null; el.dataset.lp = "1"; fn(); }, 500);
+  });
+  ["pointerup","pointercancel","pointerleave","pointermove"].forEach(ev => el.addEventListener(ev, clear));
+}
+let flashTeam = null;   // team id whose score should flip on the next Now render
+
 /* ---------- mutations ---------- */
 function addExercise(){
   const n = T().exercises.length + 1;
@@ -429,7 +533,9 @@ function removeExercise(id){
 function bump(ex, teamId, d){
   if(ex.finished) return;
   const t = ex.teams.find(x=>x.id===teamId); if(!t) return;
+  const before = t.score;
   t.score = Math.max(0, t.score + d);
+  flashTeam = (t.score !== before && d > 0) ? teamId : null;
   save(); renderNow();
 }
 function autoSplit(ex, n){
@@ -497,6 +603,7 @@ function standingsCanvas(mode){                                  // mode: "week"
                 :                    seasonTotals(true);
   const season  = seasonTotals(true);
   const players = S.roster.slice().sort((a,b)=> (primary[b.id]-primary[a.id]) || a.name.localeCompare(b.name));
+  const mv = movementFor(mode, primary);
   const title = mode === "week"  ? "Week of " + weekName(S.ui.week)
               : mode === "month" ? monthName(S.ui.month) + " standings"
               :                    "Season standings";
@@ -508,7 +615,7 @@ function standingsCanvas(mode){                                  // mode: "week"
   const c = document.createElement("canvas"); c.width = W; c.height = H;
   const x = c.getContext("2d");
 
-  const INK="#f4f7f2", DIM="#b4c7bd", RULE="#2f6650", FLAG="#f2c12e";
+  const INK="#f4f7f2", DIM="#c6d6cc", RULE="#2f6650", FLAG="#f2c12e";
   x.fillStyle = "#1f4a37"; x.fillRect(0,0,W,H);                    // board
   x.fillStyle = "#183b2c"; x.fillRect(0,0,W,headH);               // header panel
   x.fillStyle = INK; x.font = "700 30px "+F; x.textBaseline = "alphabetic";
@@ -543,6 +650,14 @@ function standingsCanvas(mode){                                  // mode: "week"
       nm += "…";
     }
     x.fillText(nm, padX + 78, cy);
+
+    const d = mv[p.id];
+    if(d){
+      const nmW = x.measureText(nm).width;              // still measured in the name font
+      x.fillStyle = d > 0 ? "#7fd694" : "#ff9a8a";
+      x.font = "700 22px " + F;
+      x.fillText((d > 0 ? "▲" : "▼") + Math.abs(d), padX + 78 + nmW + 16, cy);
+    }
 
     x.textAlign = "right";
     if(isSeason){
@@ -601,7 +716,7 @@ function finishTraining(){
   if(!anyFinished){ alert("Finish at least one exercise first."); return; }
   if(!confirm("End training for "+T().date+"?\n\nThis banks today's points into the season totals and starts a fresh training. Export your CSV first if you need it.")) return;
   const pts = trainingPoints();
-  S.history.push({ date:T().date, points:pts, exercises: JSON.parse(JSON.stringify(T().exercises)) });
+  S.history.push({ date:T().date, points:pts, presentIds:T().presentIds.slice(), exercises: JSON.parse(JSON.stringify(T().exercises)) });
   S.training = newTraining();
   S.activeExerciseId = null;
   S.ui.view = "now";
@@ -626,6 +741,12 @@ function editLineups(exId, keepScroll){
      + '<button class="btn sm" data-act="auto4">Auto-split 4</button>'
      + '</div>';
   const assigned = assignedInExercise(ex);
+  const present = new Set(T().presentIds);
+  // Show players marked here today, plus anyone already on a team (so they can be pulled off).
+  const pickable = S.roster.filter(p => present.size === 0 || present.has(p.id) || assigned.has(p.id));
+  if(present.size === 0){
+    h += '<p class="muted small" style="margin:0 0 10px">Nobody is marked here today &mdash; showing the whole squad. Tick who&rsquo;s here on the Players tab to narrow this.</p>';
+  }
   ex.teams.forEach(t=>{
     h += '<div class="card" style="border-left:6px solid '+t.color+'">'
        + '<div class="row" style="margin-bottom:8px">'
@@ -633,11 +754,12 @@ function editLineups(exId, keepScroll){
        + '<button class="btn sm" data-ren="'+t.id+'">Rename</button>'
        + (ex.teams.length>2?'<button class="btn sm danger" data-delt="'+t.id+'">Remove</button>':'')
        + '</div><div class="chips">';
-    if(!S.roster.length) h += '<span class="muted small">Add players in the Players tab first.</span>';
-    S.roster.forEach(p=>{
+    if(!pickable.length) h += '<span class="muted small">No players to pick. Add them, or mark who&rsquo;s here, on the Players tab.</span>';
+    pickable.forEach(p=>{
       const onThis = t.playerIds.includes(p.id);
       const onOther = !onThis && assigned.has(p.id);
-      h += '<button class="chip '+(onThis?'on':'')+(onOther?' dim':'')+'" data-tg="'+t.id+'|'+p.id+'">'+esc(p.name)+'</button>';
+      const away = present.size > 0 && !present.has(p.id);
+      h += '<button class="chip '+(onThis?'on':'')+(onOther?' dim':'')+(away?' away':'')+'" data-tg="'+t.id+'|'+p.id+'">'+esc(p.name)+(away?' (away)':'')+'</button>';
     });
     h += '</div></div>';
   });
@@ -697,10 +819,63 @@ function editWinner(exId){
     }
   });
 }
+function pcstat(label, val, sub){
+  return '<div class="pcstat"><div class="pcv">'+esc(String(val))
+       + (sub ? ' <span class="pcsub">'+esc(sub)+'</span>' : '')
+       + '</div><div class="pcl">'+esc(label)+'</div></div>';
+}
+function showPlayerCard(pid){
+  const p = S.roster.find(x=>x.id===pid); if(!p) return;
+  const season = seasonTotals(true), sRank = rankFromTotals(season);
+  const wk = weekTotals(S.ui.week, true), mo = monthTotals(S.ui.month, true);
+  const att = seasonAttendance()[pid] || 0, nT = S.history.length;
+  const rec = playerRecord(pid);
+
+  let cum = Number(S.startingPoints[pid]||0);
+  const series = [cum];
+  S.history.forEach(h => { cum += (h.points[pid]||0); series.push(cum); });
+  const todayPts = trainingPoints()[pid] || 0;
+  if(todayPts){ series.push(cum + todayPts); }
+
+  const recent = S.history.slice(-6).reverse().map(h => {
+    const won = (h.exercises||[]).filter(ex => {
+      const on = ex.teams.find(t => t.playerIds.includes(pid));
+      return on && new Set(winnersOf(ex)).has(on.id);
+    }).length;
+    return { date: h.date, got: h.points[pid]||0, won };
+  });
+
+  let h = '<h2>'+esc(p.name)+'</h2>';
+  h += '<div class="pcgrid">'
+     + pcstat("Season points", season[pid]||0, "rank #"+(sRank[pid]||"-"))
+     + pcstat("This week", wk[pid]||0, "")
+     + pcstat("This month", mo[pid]||0, "")
+     + pcstat("Attendance", att + (nT ? " / "+nT : ""), nT ? "trainings" : "none yet")
+     + pcstat("Exercises won", rec.wins, "of "+rec.played+" played")
+     + '</div>';
+  if(series.length > 1) h += '<div class="spark">'+sparkSVG(series)+'</div>'
+     + '<p class="muted small" style="margin:0">Season points over time</p>';
+  h += '<div class="hr"></div><h3 style="font-size:14px">Recent trainings</h3>';
+  if(!recent.length){
+    h += '<p class="muted small">No banked trainings yet.</p>';
+  }else{
+    h += '<div class="list">';
+    recent.forEach(r => {
+      h += '<div class="item"><div class="grow nm">'+esc(niceDate(r.date))+'</div>'
+         + '<div class="col num'+(r.got?' hi':'')+'">'+(r.got ? "+"+r.got : "0")+'</div>'
+         + '<div class="col num">'+r.won+' won</div></div>';
+    });
+    h += '</div>';
+  }
+  h += '<div class="hr"></div><button class="btn pri" data-close="1" style="width:100%">Close</button>';
+  openModal(h);
+  document.querySelector("#modal .sheet").addEventListener("click", e => { if(e.target.dataset.close) closeModal(); });
+}
 function showHelp(){
   openModal(
     '<h2>How scoring works</h2>'
-    + '<p><b>During an exercise</b> tap a team&rsquo;s card to add a point (goals, rallies, whatever you count). The small &minus; button fixes mistakes.</p>'
+    + '<p><b>During an exercise</b> tap a team to add a point (goals, rallies, whatever you count). <b>Hold</b> a team to type an exact score. The small &minus; fixes mistakes.</p>'
+    + '<p>Line-ups only offers players marked <b>here today</b> on the Players tab. Tap a player&rsquo;s name in <b>Players</b> or <b>Standings</b> for their card &mdash; points, attendance, win record and a points trend.</p>'
     + '<p><b>Finish exercise</b> locks it. The team with the highest score wins. Each player on a winning team earns <b>1 competition point</b> &mdash; or <b>3</b> if the exercise is flagged as the <span class="tag">END GAME</span>.</p>'
     + '<p>Draws: every top team wins by default. Use <b>Edit winner</b> to override.</p>'
     + '<p><b>Standings</b> has a <b>Week / Month / Season</b> switch. Week & Month show that period&rsquo;s points next to each player&rsquo;s season total; pick which week or month from the dropdown. Season = starting points + every banked training. The <b>incl. today</b> toggle adds the current unbanked training.</p>'
@@ -742,6 +917,8 @@ function viewNow(){
      + '<span class="spacer"></span>'
      + '<button class="btn sm" id="lineups">Line-ups</button>'
      + '</div>';
+  if(!ex.finished)
+    h += '<p class="small muted" style="margin:-2px 0 10px">Tap a team to add a point. Hold a team to set an exact score.</p>';
 
   const w = new Set(ex.finished ? winnersOf(ex) : []);
   h += '<div class="teams">';
@@ -750,12 +927,13 @@ function viewNow(){
        + (w.has(t.id)?'<span class="crown">👑</span>':'')
        + (ex.finished?'':'<button class="minus" data-minus="'+t.id+'">&minus;</button>')
        + '<div class="name">'+esc(t.name)+'</div>'
-       + '<div class="score" data-scoreedit="'+t.id+'">'+t.score+'</div>'
+       + '<div class="score'+(flashTeam===t.id?' bump':'')+'">'+t.score+'</div>'
        + (ex.finished?'<div class="small muted">'+(w.has(t.id)?('+'+pointsForWin(ex)+' pts each'):'&nbsp;')+'</div>'
                      :'<button type="button" class="plus">+1</button>')
        + '</div>';
   });
   h += '</div>';
+  flashTeam = null;
 
   h += '<div class="row wrap" style="margin-top:12px">';
   if(!ex.finished){
@@ -834,15 +1012,17 @@ function viewPlayers(){
   h += '<div class="card small muted">Tick who is here today (used for auto-split and shown in the export). '
      + '&ldquo;Start&rdquo; = points this player already had before you began using this app.</div>';
   if(!S.roster.length){
-    h += '<div class="card muted">No players yet. Tap <b>+ Add</b> to build the season roster.</div>';
+    h += '<div class="card muted">No squad yet. Tap <b>+ Add</b> and type your players&rsquo; names.</div>';
     return h;
   }
   const present = new Set(T().presentIds);
+  const att = seasonAttendance(), nT = S.history.length;
   h += '<div class="list">';
   S.roster.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
     h += '<div class="item">'
        + '<button class="pill '+(present.has(p.id)?'on':'')+'" data-here="'+p.id+'">'+(present.has(p.id)?'Here':'Away')+'</button>'
-       + '<div class="grow nm">'+esc(p.name)+'</div>'
+       + '<div class="grow nm" data-player="'+p.id+'">'+esc(p.name)+'</div>'
+       + (nT?'<span class="att">'+(att[p.id]||0)+'/'+nT+'</span>':'')
        + '<label class="small muted">start</label>'
        + '<input type="number" inputmode="numeric" style="width:64px" value="'+Number(S.startingPoints[p.id]||0)+'" data-start="'+p.id+'">'
        + '<button class="btn sm" data-renp="'+p.id+'">✎</button>'
@@ -864,10 +1044,12 @@ function viewStandings(){
                 :                      season;
   const ordered = S.roster.slice().sort((a,b)=> (primary[b.id]-primary[a.id]) || a.name.localeCompare(b.name));
   const colLabel = period === "week" ? "This week" : period === "month" ? monthName(mk) : "Season";
+  const mv = movementFor(period, primary);
+  const showMv = Object.keys(mv).length > 0;
 
   let h = '<div class="bar"><h1>Standings</h1>'
         + '<button class="pill '+(inc?'on':'')+'" id="incToday">'+(inc?'incl. today':'banked only')+'</button></div>';
-  if(!S.roster.length){ h += '<div class="card muted">No players yet.</div>'; return h; }
+  if(!S.roster.length){ h += '<div class="card muted">No squad yet &mdash; add players on the Players tab first.</div>'; return h; }
 
   h += '<div class="row" style="margin-bottom:8px">'
      + '<button class="pill '+(period==="week"?"on":"")+'" data-period="week">Week</button>'
@@ -885,7 +1067,7 @@ function viewStandings(){
        + '</select>';
   }
 
-  h += '<div class="item" style="font-weight:700;font-size:12px;color:var(--muted)">'
+  h += '<div class="item" style="font-weight:700;font-size:12px;color:var(--chalk-dim)">'
      + '<div class="rank">#</div><div class="grow">Player</div>'
      + '<div class="col">'+esc(colLabel)+'</div>'
      + (isSeason ? '' : '<div class="col">Season</div>')
@@ -893,12 +1075,14 @@ function viewStandings(){
   h += '<div class="list">';
   ordered.forEach((p,i)=>{
     h += '<div class="item"><div class="rank">'+(i+1)+'</div>'
-       + '<div class="grow nm">'+esc(p.name)+'</div>'
+       + '<div class="grow nm" data-player="'+p.id+'">'+esc(p.name)+(showMv?mvHTML(mv[p.id]):'')+'</div>'
        + '<div class="col num hi">'+(primary[p.id]||0)+'</div>'
        + (isSeason ? '' : '<div class="col num">'+(season[p.id]||0)+'</div>')
        + '</div>';
   });
   h += '</div>';
+  if(showMv) h += '<p class="small muted" style="margin:6px 0 0">Arrows: rank change since '
+     + (period==="week" ? "last week" : period==="month" ? "last month" : "the last training") + '.</p>';
 
   h += '<div class="row wrap" style="margin-top:8px">'
      + '<button class="btn" id="imgWeek">🖼️ Week image</button>'
@@ -953,22 +1137,21 @@ function wire(){
     on("editWin","click",()=>editWinner(ex.id));
     on("delEx","click",()=>{ if(confirm("Delete "+ex.name+"?")) removeExercise(ex.id); });
     document.querySelectorAll("[data-team]").forEach(el=>{
+      const tid = el.dataset.team;
+      bindLongPress(el, ()=>{
+        if(ex.finished) return;
+        const t = ex.teams.find(x=>x.id===tid); if(!t) return;
+        const n = prompt("Set an exact score for "+t.name, t.score);
+        if(n!==null && n!==""){ t.score = Math.max(0, parseInt(n,10)||0); save(); renderNow(); }
+      });
       el.addEventListener("click",e=>{
-        if(e.target.closest("[data-minus]") || e.target.closest("[data-scoreedit]")) return;
-        bump(ex, el.dataset.team, +1);
+        if(el.dataset.lp){ delete el.dataset.lp; return; }   // this click closed a long-press
+        if(e.target.closest("[data-minus]")) return;
+        bump(ex, tid, +1);
       });
     });
     document.querySelectorAll("[data-minus]").forEach(el=>{
       el.addEventListener("click",e=>{ e.stopPropagation(); bump(ex, el.dataset.minus, -1); });
-    });
-    document.querySelectorAll("[data-scoreedit]").forEach(el=>{
-      el.addEventListener("click",e=>{
-        e.stopPropagation();
-        if(ex.finished) return;
-        const t=ex.teams.find(x=>x.id===el.dataset.scoreedit);
-        const n=prompt("Set score for "+t.name, t.score);
-        if(n!==null && n!==""){ t.score=Math.max(0,parseInt(n,10)||0); save(); renderNow(); }
-      });
     });
   }
 
@@ -1016,12 +1199,14 @@ function wire(){
       T().exercises.forEach(ex=> ex.teams.forEach(t=> t.playerIds=t.playerIds.filter(x=>x!==p.id)));
       save(); render();
     }));
+    document.querySelectorAll("[data-player]").forEach(el=> el.addEventListener("click",()=> showPlayerCard(el.dataset.player)));
     on("expSum","click",exportSummary);
   }
 
   // STANDINGS view
   if(S.ui.view==="standings"){
     on("incToday","click",()=>{ S.ui.standingsIncludeToday=!S.ui.standingsIncludeToday; saveUi(); render(); });
+    document.querySelectorAll("[data-player]").forEach(el=> el.addEventListener("click",()=> showPlayerCard(el.dataset.player)));
     document.querySelectorAll("[data-period]").forEach(el=> el.addEventListener("click",()=>{ S.ui.period=el.dataset.period; saveUi(); render(); }));
     on("wkPick","change",e=>{ S.ui.week=e.target.value; saveUi(); render(); });
     on("moPick","change",e=>{ S.ui.month=e.target.value; saveUi(); render(); });
