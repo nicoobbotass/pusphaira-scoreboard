@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1220">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<title>Pusphaira Scoreboard</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --ink:#11151c; --muted:#5b6472;
+    --line:#e2e5ea; --accent:#2563eb; --accent-ink:#ffffff;
+    --good:#15803d; --bad:#b91c1c; --warn:#b45309;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b1220; --card:#151c28; --ink:#eef1f6; --muted:#9aa4b2;
+      --line:#26303f; --accent:#3b82f6; --accent-ink:#ffffff;
+      --good:#4ade80; --bad:#f87171; --warn:#fbbf24;
+    }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding-top:var(--safe-t);
+    -webkit-user-select:none; user-select:none;
+    touch-action:manipulation;
+  }
+  h1,h2,h3{margin:0 0 .4em}
+  button{font:inherit; color:inherit; cursor:pointer; border:0; background:none}
+  input[type=text],input[type=number],input[type=date]{
+    font:inherit; color:var(--ink); background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:.55em .7em; width:100%;
+    -webkit-user-select:text; user-select:text;
+  }
+  .page{max-width:760px; margin:0 auto; padding:12px 12px 92px}
+  .bar{display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap}
+  .bar h1{font-size:20px; margin:0; flex:1}
+  .btn{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:.6em .9em; font-weight:600; display:inline-flex; align-items:center; gap:.4em;
+  }
+  .btn.pri{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:.4em .6em; font-size:14px; border-radius:10px}
+  .btn.danger{color:var(--bad)}
+  .btn:active{transform:translateY(1px)}
+  .row{display:flex; gap:8px; align-items:center}
+  .row.wrap{flex-wrap:wrap}
+  .spacer{flex:1}
+  .muted{color:var(--muted)}
+  .small{font-size:13px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px}
+  .pill{border:1px solid var(--line); border-radius:999px; padding:.3em .7em; font-size:13px; background:var(--card)}
+  .pill.on{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+
+  /* scoreboard */
+  .teams{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
+  .team{
+    position:relative; border-radius:18px; padding:16px 12px 12px; text-align:center;
+    border:2px solid var(--tc,#888); background:color-mix(in srgb, var(--tc,#888) 14%, var(--card));
+    min-height:132px; display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .team .name{font-weight:700; font-size:15px; word-break:break-word}
+  .team .score{font-size:44px; font-weight:800; line-height:1; margin:6px 0}
+  .team .plus{
+    margin-top:4px; border-radius:12px; padding:.5em; font-weight:800; font-size:18px;
+    background:var(--tc,#888); color:#fff;
+  }
+  .team .minus{
+    position:absolute; top:6px; right:6px; width:34px; height:34px; border-radius:50%;
+    background:var(--card); border:1px solid var(--line); font-weight:800; font-size:18px;
+  }
+  .team.win{box-shadow:0 0 0 3px var(--good) inset}
+  .team .crown{position:absolute; top:6px; left:8px; font-size:18px}
+
+  .list{display:flex; flex-direction:column; gap:8px}
+  .item{display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--card);
+    border:1px solid var(--line); border-radius:12px}
+  .item .grow{flex:1; min-width:0}
+  .item .nm{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .rank{width:26px; text-align:right; font-variant-numeric:tabular-nums; color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums; font-weight:700}
+  .col{width:58px; text-align:right; flex:none}
+  .col.num{color:var(--muted); font-weight:600}
+  .col.num.hi{color:var(--ink); font-weight:800}
+  .delta{color:var(--good); font-size:13px; margin-left:4px}
+
+  /* nav */
+  .nav{
+    position:fixed; left:0; right:0; bottom:0; display:flex; z-index:20;
+    background:color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter:blur(8px);
+    border-top:1px solid var(--line); padding-bottom:var(--safe-b);
+  }
+  .nav button{flex:1; padding:10px 4px 8px; font-size:11px; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:2px}
+  .nav button .ic{font-size:20px}
+  .nav button.on{color:var(--accent)}
+
+  /* modal */
+  .scrim{position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; z-index:40}
+  .sheet{background:var(--card); width:100%; max-width:760px; border-radius:18px 18px 0 0; padding:16px; padding-bottom:calc(16px + var(--safe-b)); max-height:88vh; overflow:auto}
+  .sheet h2{font-size:18px}
+  .chips{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{border:1px solid var(--line); border-radius:999px; padding:.4em .8em; font-size:14px; background:var(--card)}
+  .chip.on{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+  .chip.dim{opacity:.5}
+  .hr{height:1px; background:var(--line); margin:12px 0}
+  .warnbar{background:var(--warn); color:#fff; padding:8px 12px; border-radius:10px; margin-bottom:12px; font-size:14px}
+  .tag{font-size:12px; padding:.15em .5em; border-radius:6px; background:color-mix(in srgb,var(--accent) 18%,transparent); color:var(--accent); font-weight:700}
+</style>
+</head>
+<body>
+<div class="page" id="app"></div>
+
+<div class="nav" id="nav">
+  <button data-go="now"><span class="ic">🎯</span>Now</button>
+  <button data-go="exercises"><span class="ic">📋</span>Exercises</button>
+  <button data-go="players"><span class="ic">👥</span>Players</button>
+  <button data-go="standings"><span class="ic">🏆</span>Standings</button>
+</div>
+
+<div id="modal"></div>
+
+<script>
+"use strict";
+
+/* ---------- storage ---------- */
+const KEY = "pusphaira_v1";
+const PALETTE = ["#2563eb","#dc2626","#16a34a","#d97706","#7c3aed","#0891b2","#db2777","#65a30d","#4f46e5","#ea580c","#0d9488","#be123c"];
+let storageOK = true;
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function todayISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function monthKey(s){ return (s||"").slice(0,7); }                    // "2026-09"
+function monthName(k){ const p=(k||"").split("-"); const d=new Date(+p[0], (+p[1]||1)-1, 1);
+  return isNaN(d) ? k : d.toLocaleString(undefined,{month:"short"})+" "+p[0]; }
+
+// ISO-8601 week (Mon–Sun). weekKey("2026-09-09") -> "2026-W37"
+function weekKey(iso){
+  if(!iso) return "";
+  const p = iso.split("-").map(Number);
+  let d = new Date(Date.UTC(p[0], p[1]-1, p[2]));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);                 // shift to that week's Thursday
+  const yStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const wk = Math.ceil(((d - yStart) / 86400000 + 1) / 7);
+  return d.getUTCFullYear() + "-W" + String(wk).padStart(2, "0");
+}
+function weekMonday(k){
+  const m = /^(\d{4})-W(\d{2})$/.exec(k||""); if(!m) return null;
+  const jan4 = new Date(Date.UTC(+m[1], 0, 4));
+  const mon = new Date(jan4);
+  mon.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() || 7) - 1) + (+m[2] - 1) * 7);
+  return mon;
+}
+function weekName(k){
+  const mon = weekMonday(k); if(!mon) return k;
+  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+  const f = d => d.getUTCDate() + " " + d.toLocaleString(undefined, {month:"short", timeZone:"UTC"});
+  return f(mon) + " – " + f(sun);
+}
+
+function newTraining(){ return { date: todayISO(), presentIds: [], exercises: [] }; }
+function defaultState(){
+  return {
+    version:1,
+    updatedAt: 0,         // ms of the last change — used to resolve which copy is newest
+    roster: [],
+    startingPoints: {},   // playerId -> season points carried in before this app
+    history: [],          // [{date, points:{pid:n}, exercises:[snapshot]}]
+    training: newTraining(),
+    activeExerciseId: null,
+    ui: { view:"now", standingsIncludeToday:true, period:"season",
+          week: weekKey(todayISO()), month: monthKey(todayISO()) }
+  };
+}
+// Read primary; fall back to the mirror copy if the primary is missing or corrupt.
+function load(){
+  for(const k of [KEY, KEY+"_bak"]){
+    try{
+      const raw = localStorage.getItem(k);
+      if(!raw) continue;
+      const s = JSON.parse(raw);
+      if(s && Array.isArray(s.roster))
+        return Object.assign(defaultState(), s, { ui: Object.assign(defaultState().ui, s.ui||{}) });
+    }catch(e){}
+  }
+  return defaultState();
+}
+let lastSaved = 0;
+function saveLocal(){
+  try{
+    const json = JSON.stringify(S);
+    localStorage.setItem(KEY, json);
+    try{ localStorage.setItem(KEY+"_bak", json); }catch(_){}
+    lastSaved = Date.now();
+    storageOK = true;
+  }catch(e){ storageOK = false; }
+}
+// Every edit goes here: stamp it, write it to this device, and queue a cloud push.
+function save(){
+  S.updatedAt = Date.now();
+  saveLocal();
+  cloudPush();
+}
+let S = load();
+try{ localStorage.setItem(KEY+"_probe","1"); localStorage.removeItem(KEY+"_probe"); }catch(e){ storageOK=false; }
+
+// Ask the browser to keep this data and not evict it in the background.
+let persistMode = "checking…";
+if(navigator.storage && navigator.storage.persist){
+  Promise.resolve(navigator.storage.persisted ? navigator.storage.persisted() : false)
+    .then(p => p ? true : navigator.storage.persist())
+    .then(p => { persistMode = p ? "persistent ✓" : "best-effort"; })
+    .catch(() => { persistMode = "best-effort"; });
+}else{ persistMode = "best-effort"; }
+
+/* ---------- cloud sync (Netlify function + Blobs) ----------
+   Shared copy of the whole state lives at /api/state.
+   - on launch we PULL and adopt it if it's newer than this device's copy
+   - every save() queues a debounced PUSH
+   - if there's no backend (opened as a file, or not deployed with the function)
+     the fetch 404s and we fall back to device-only, no errors shown.
+*/
+const CLOUD = "/api/state";
+let syncState = "…";            // "off" | "synced" | "syncing" | "offline" | "error"
+let syncNote = "";
+let pushPending = false, pushTimer = null, cloudReady = false;
+
+function cloudLabel(){
+  return syncState==="off"     ? "device only"
+       : syncState==="synced"  ? "on ✓"
+       : syncState==="syncing" ? "saving…"
+       : syncState==="offline" ? "offline — will retry"
+       : syncState==="error"   ? "error — tap Sync now"
+       : "…";
+}
+let lastSyncRender = "";
+function afterSync(){
+  if(syncState === lastSyncRender) return;               // only redraw when the state word changes
+  lastSyncRender = syncState;
+  if(S.ui.view==="exercises" || S.ui.view==="now") render();
+}
+function cloudBodyForPush(){ const c = JSON.parse(JSON.stringify(S)); delete c.ui; return c; }
+
+async function cloudPull(opts){
+  opts = opts || {};
+  try{
+    const r = await fetch(CLOUD, { cache:"no-store" });
+    if(r.status === 404){ syncState = "off"; afterSync(); return; }
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const remote = await r.json();
+    cloudReady = true;
+    if(remote && (remote.updatedAt||0) > (S.updatedAt||0) && !pushPending){
+      const ui = S.ui;
+      S = Object.assign(defaultState(), remote, { ui: Object.assign(defaultState().ui, ui) });
+      saveLocal();
+      syncState = "synced"; syncNote = "updated from another device";
+      render();
+    }else{
+      syncState = "synced"; syncNote = "";
+      if(!remote || (S.updatedAt||0) > (remote.updatedAt||0)) cloudPush(true);
+    }
+  }catch(e){
+    syncState = navigator.onLine ? "error" : "offline";
+    syncNote = String((e && e.message) || e);
+  }
+  afterSync();
+}
+function cloudPush(now){
+  if(syncState === "off") return;
+  pushPending = true;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(cloudFlush, now ? 0 : 1200);
+}
+async function cloudFlush(){
+  if(!pushPending) return;
+  if(!navigator.onLine){ syncState = "offline"; afterSync(); return; }
+  syncState = "syncing"; afterSync();
+  try{
+    const r = await fetch(CLOUD, {
+      method:"PUT",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify(cloudBodyForPush())
+    });
+    if(r.status === 404){ syncState = "off"; pushPending = false; afterSync(); return; }
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    pushPending = false; cloudReady = true;
+    syncState = "synced"; syncNote = "";
+  }catch(e){
+    syncState = navigator.onLine ? "error" : "offline";
+    syncNote = String((e && e.message) || e);
+  }
+  afterSync();
+}
+function cloudInit(){
+  cloudPull();
+  addEventListener("online",  () => { if(pushPending) cloudFlush(); else cloudPull(); });
+  addEventListener("offline", () => { syncState = "offline"; afterSync(); });
+  document.addEventListener("visibilitychange", () => {
+    if(document.visibilityState === "visible" && syncState !== "off" && !pushPending) cloudPull();
+  });
+  setInterval(() => {
+    if(document.visibilityState === "visible" && syncState !== "off" && !pushPending) cloudPull();
+  }, 45000);
+}
+
+/* ---------- model helpers ---------- */
+const T = () => S.training;
+const activeEx = () => T().exercises.find(e => e.id === S.activeExerciseId) || null;
+const playerName = id => (S.roster.find(p=>p.id===id)||{}).name || "?";
+const pointsForWin = ex => ex.endGame ? 3 : 1;
+
+function winnersOf(ex){
+  if(ex.manualWinnerIds && ex.manualWinnerIds.length) return ex.manualWinnerIds.slice();
+  if(ex.teams.length < 2) return [];
+  const max = Math.max(...ex.teams.map(t=>t.score));
+  return ex.teams.filter(t=>t.score===max).map(t=>t.id);
+}
+function trainingPoints(){
+  const m = {}; S.roster.forEach(p=> m[p.id]=0);
+  T().exercises.forEach(ex=>{
+    if(!ex.finished) return;
+    const w = new Set(winnersOf(ex));
+    const pts = pointsForWin(ex);
+    ex.teams.forEach(t=>{ if(w.has(t.id)) t.playerIds.forEach(pid=>{ if(pid in m) m[pid]+=pts; }); });
+  });
+  return m;
+}
+function seasonTotals(includeToday){
+  const m = {}; S.roster.forEach(p=> m[p.id] = Number(S.startingPoints[p.id]||0));
+  S.history.forEach(h=>{ for(const pid in h.points) if(pid in m) m[pid]+=h.points[pid]; });
+  if(includeToday){ const c=trainingPoints(); for(const pid in c) m[pid]+=c[pid]; }
+  return m;
+}
+function periodTotals(keyFn, key, includeToday){
+  const m = {}; S.roster.forEach(p=> m[p.id]=0);
+  S.history.forEach(h=>{ if(keyFn(h.date)!==key) return; for(const pid in h.points) if(pid in m) m[pid]+=h.points[pid]; });
+  if(includeToday && keyFn(T().date)===key){ const c=trainingPoints(); for(const pid in c) m[pid]+=c[pid]; }
+  return m;
+}
+function monthTotals(mkey, includeToday){ return periodTotals(monthKey, mkey, includeToday); }
+function weekTotals(wkey, includeToday){ return periodTotals(weekKey, wkey, includeToday); }
+function historyKeys(keyFn, current){
+  const s = new Set(S.history.map(h=>keyFn(h.date)));
+  s.add(keyFn(T().date)); s.add(current);
+  return [...s].filter(Boolean).sort().reverse();
+}
+function historyMonths(){ return historyKeys(monthKey, S.ui.month); }
+function historyWeeks(){ return historyKeys(weekKey, S.ui.week); }
+function assignedInExercise(ex){ const s=new Set(); ex.teams.forEach(t=>t.playerIds.forEach(p=>s.add(p))); return s; }
+
+/* ---------- mutations ---------- */
+function addExercise(){
+  const n = T().exercises.length + 1;
+  const ex = { id:uid(), name:"Exercise "+n, endGame:false, finished:false, manualWinnerIds:[], teams:[] };
+  addTeam(ex); addTeam(ex);
+  T().exercises.push(ex);
+  S.activeExerciseId = ex.id;
+  S.ui.view = "now";
+  save(); render();
+}
+function addTeam(ex){
+  const i = ex.teams.length;
+  ex.teams.push({ id:uid(), name:"Team "+(i+1), color:PALETTE[i%PALETTE.length], score:0, playerIds:[] });
+}
+function removeExercise(id){
+  S.training.exercises = T().exercises.filter(e=>e.id!==id);
+  if(S.activeExerciseId===id) S.activeExerciseId = (T().exercises[0]||{}).id || null;
+  save(); render();
+}
+function bump(ex, teamId, d){
+  if(ex.finished) return;
+  const t = ex.teams.find(x=>x.id===teamId); if(!t) return;
+  t.score = Math.max(0, t.score + d);
+  save(); renderNow();
+}
+function autoSplit(ex, n){
+  const pool = (T().presentIds.length ? T().presentIds : S.roster.map(p=>p.id)).slice();
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  while(ex.teams.length < n) addTeam(ex);
+  ex.teams = ex.teams.slice(0, Math.max(2,n));
+  ex.teams.forEach(t=> t.playerIds = []);
+  pool.forEach((pid,idx)=> ex.teams[idx % ex.teams.length].playerIds.push(pid));
+  save(); render();
+}
+
+/* ---------- CSV / backup ---------- */
+function csvCell(v){
+  v = String(v==null?"":v);
+  return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function toCSV(rows){ return rows.map(r=> r.map(csvCell).join(",")).join("\r\n"); }
+
+function summaryCSV(){
+  const tp = trainingPoints(), st = seasonTotals(true);
+  const wo = weekTotals(weekKey(T().date), true);
+  const mo = monthTotals(monthKey(T().date), true);
+  const present = new Set(T().presentIds);
+  const rows = [["player","present","training_points","week_points","month_points","season_total"]];
+  S.roster.slice().sort((a,b)=> st[b.id]-st[a.id] || a.name.localeCompare(b.name))
+    .forEach(p=> rows.push([p.name, present.has(p.id)?"yes":"no", tp[p.id]||0, wo[p.id]||0, mo[p.id]||0, st[p.id]||0]));
+  return toCSV(rows);
+}
+function detailCSV(){
+  const rows = [["date","exercise","end_game","team","player","team_final_score","result","competition_points"]];
+  T().exercises.filter(e=>e.finished).forEach(ex=>{
+    const w = new Set(winnersOf(ex)), pts = pointsForWin(ex);
+    ex.teams.forEach(t=>{
+      const won = w.has(t.id);
+      (t.playerIds.length?t.playerIds:[null]).forEach(pid=>{
+        rows.push([T().date, ex.name, ex.endGame?"yes":"no", t.name,
+          pid?playerName(pid):"(no players)", t.score, won?"win":"loss", won?pts:0]);
+      });
+    });
+  });
+  return toCSV(rows);
+}
+async function shareFile(name, text, mime){
+  const blob = new Blob([text], {type:mime||"text/csv"});
+  try{
+    const f = new File([blob], name, {type:blob.type});
+    if(navigator.canShare && navigator.canShare({files:[f]})){
+      await navigator.share({files:[f], title:name}); return;
+    }
+  }catch(e){ if(e && e.name==="AbortError") return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+function exportSummary(){ shareFile("pusphaira_"+T().date+"_summary.csv", summaryCSV()); }
+function exportDetail(){ shareFile("pusphaira_"+T().date+"_detail.csv", detailCSV()); }
+function exportBackup(){ shareFile("pusphaira_backup_"+todayISO()+".json", JSON.stringify(S,null,2), "application/json"); }
+
+/* ---------- shareable standings image ---------- */
+function standingsCanvas(mode){                                  // mode: "week" | "month" | "season"
+  const isSeason = mode === "season";
+  const primary = mode === "week"  ? weekTotals(S.ui.week, true)
+                : mode === "month" ? monthTotals(S.ui.month, true)
+                :                    seasonTotals(true);
+  const season  = seasonTotals(true);
+  const players = S.roster.slice().sort((a,b)=> (primary[b.id]-primary[a.id]) || a.name.localeCompare(b.name));
+  const title = mode === "week"  ? weekName(S.ui.week) + " — weekly"
+              : mode === "month" ? monthName(S.ui.month) + " — monthly"
+              :                    "Season standings";
+  const rightHdr = isSeason ? "POINTS" : (mode === "week" ? "WEEK   SEASON" : "MONTH   SEASON");
+
+  const F = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const W = 1080, padX = 60, headH = 240, rowH = 66, footH = 96;
+  const H = headH + Math.max(players.length,1)*rowH + footH;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+
+  x.fillStyle = "#0b1220"; x.fillRect(0,0,W,H);
+  x.fillStyle = "#151c28"; x.fillRect(0,0,W,headH);
+  x.fillStyle = "#3b82f6"; x.font = "700 32px "+F; x.textBaseline = "alphabetic";
+  x.fillText("PUSPHAIRA", padX, 76);
+  x.fillStyle = "#eef1f6"; x.font = "800 50px "+F;
+  x.fillText(title, padX, 142);
+  x.fillStyle = "#9aa4b2"; x.font = "400 26px "+F;
+  const today = new Date().toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"});
+  x.fillText("as of "+today, padX, 186);
+  x.fillStyle = "#9aa4b2"; x.font = "700 22px "+F;
+  x.textAlign = "left";  x.fillText("#   PLAYER", padX, headH-22);
+  x.textAlign = "right"; x.fillText(rightHdr, W-padX, headH-22);
+
+  const medal = ["#fbbf24","#c9d3e0","#e6a86b"];
+  players.forEach((p,i)=>{
+    const y = headH + i*rowH, cy = y + rowH/2;
+    if(i % 2 === 0){ x.fillStyle = "#10192a"; x.fillRect(0,y,W,rowH); }
+    x.textBaseline = "middle";
+    x.textAlign = "left";
+    x.fillStyle = medal[i] || "#6b7688";
+    x.font = (medal[i] ? "800 " : "600 ") + "30px " + F;
+    x.fillText(String(i+1), padX, cy);
+
+    x.fillStyle = "#eef1f6"; x.font = "600 33px "+F;
+    let nm = p.name;
+    const maxNameW = W - padX - 110 - (isSeason ? 200 : 300);
+    if(x.measureText(nm).width > maxNameW){
+      while(nm.length > 1 && x.measureText(nm+"…").width > maxNameW) nm = nm.slice(0,-1);
+      nm += "…";
+    }
+    x.fillText(nm, padX + 78, cy);
+
+    x.textAlign = "right";
+    if(isSeason){
+      x.fillStyle = "#eef1f6"; x.font = "800 34px "+F;
+      x.fillText(String(primary[p.id]||0), W - padX, cy);
+    }else{
+      x.fillStyle = "#5b6472"; x.font = "600 26px "+F;
+      x.fillText(String(season[p.id]||0), W - padX, cy);
+      x.fillStyle = "#eef1f6"; x.font = "800 34px "+F;
+      x.fillText(String(primary[p.id]||0), W - padX - 150, cy);
+    }
+  });
+
+  x.textAlign = "left"; x.textBaseline = "alphabetic";
+  x.fillStyle = "#5b6472"; x.font = "400 22px "+F;
+  x.fillText(players.length+" players  ·  win = 1 pt  ·  end game = 3 pts", padX, H-38);
+  return c;
+}
+function exportStandingsImage(mode){
+  if(!S.roster.length){ alert("Add players first."); return; }
+  const tag = mode === "week" ? S.ui.week : mode === "month" ? S.ui.month : "season";
+  const name = "pusphaira_"+tag+".png";
+  standingsCanvas(mode).toBlob(async (blob)=>{
+    try{
+      const f = new File([blob], name, {type:"image/png"});
+      if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f], title:name}); return; }
+    }catch(e){ if(e && e.name==="AbortError") return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }, "image/png");
+}
+function importBackup(){
+  const inp = document.createElement("input"); inp.type="file"; inp.accept=".json,application/json";
+  inp.onchange = () => {
+    const file = inp.files[0]; if(!file) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try{
+        const data = JSON.parse(r.result);
+        if(!data || !Array.isArray(data.roster)) throw new Error("bad file");
+        if(confirm("Replace ALL current data with this backup?")){
+          S = Object.assign(defaultState(), data, { ui: Object.assign(defaultState().ui, data.ui||{}) });
+          save(); render();
+        }
+      }catch(e){ alert("Could not read that file."); }
+    };
+    r.readAsText(file);
+  };
+  inp.click();
+}
+
+function finishTraining(){
+  const anyFinished = T().exercises.some(e=>e.finished);
+  if(!anyFinished){ alert("Finish at least one exercise first."); return; }
+  if(!confirm("End training for "+T().date+"?\n\nThis banks today's points into the season totals and starts a fresh training. Export your CSV first if you need it.")) return;
+  const pts = trainingPoints();
+  S.history.push({ date:T().date, points:pts, exercises: JSON.parse(JSON.stringify(T().exercises)) });
+  S.training = newTraining();
+  S.activeExerciseId = null;
+  S.ui.view = "now";
+  save(); render();
+}
+
+/* ---------- modal ---------- */
+function openModal(html){
+  const m = document.getElementById("modal");
+  m.innerHTML = '<div class="scrim" id="scrim"><div class="sheet">'+html+'</div></div>';
+  document.getElementById("scrim").addEventListener("click", e=>{ if(e.target.id==="scrim") closeModal(); });
+}
+function closeModal(){ document.getElementById("modal").innerHTML=""; }
+
+function editLineups(exId, keepScroll){
+  const ex = T().exercises.find(e=>e.id===exId); if(!ex) return;
+  let h = '<h2>Line-ups — '+esc(ex.name)+'</h2>';
+  h += '<div class="row wrap" style="margin-bottom:10px">'
+     + '<button class="btn sm" data-act="add-team">+ Add team</button>'
+     + '<button class="btn sm" data-act="auto2">Auto-split 2</button>'
+     + '<button class="btn sm" data-act="auto3">Auto-split 3</button>'
+     + '<button class="btn sm" data-act="auto4">Auto-split 4</button>'
+     + '</div>';
+  const assigned = assignedInExercise(ex);
+  ex.teams.forEach(t=>{
+    h += '<div class="card" style="border-left:6px solid '+t.color+'">'
+       + '<div class="row" style="margin-bottom:8px">'
+       + '<b class="grow">'+esc(t.name)+'</b>'
+       + '<button class="btn sm" data-ren="'+t.id+'">Rename</button>'
+       + (ex.teams.length>2?'<button class="btn sm danger" data-delt="'+t.id+'">Remove</button>':'')
+       + '</div><div class="chips">';
+    if(!S.roster.length) h += '<span class="muted small">Add players in the Players tab first.</span>';
+    S.roster.forEach(p=>{
+      const onThis = t.playerIds.includes(p.id);
+      const onOther = !onThis && assigned.has(p.id);
+      h += '<button class="chip '+(onThis?'on':'')+(onOther?' dim':'')+'" data-tg="'+t.id+'|'+p.id+'">'+esc(p.name)+'</button>';
+    });
+    h += '</div></div>';
+  });
+  h += '<button class="btn pri" data-act="close" style="width:100%">Done</button>';
+  openModal(h);
+  const sheet = document.querySelector("#modal .sheet");
+  if(keepScroll){ sheet.scrollTop = keepScroll; requestAnimationFrame(()=>{ sheet.scrollTop = keepScroll; }); }
+  sheet.addEventListener("click", ev=>{
+    const b = ev.target.closest("button"); if(!b) return;
+    const sc = sheet.scrollTop;
+    if(b.dataset.act==="close"){ closeModal(); render(); return; }
+    if(b.dataset.act==="add-team"){ addTeam(ex); save(); editLineups(exId, sc); return; }
+    if(b.dataset.act==="auto2"){ autoSplit(ex,2); editLineups(exId, sc); return; }
+    if(b.dataset.act==="auto3"){ autoSplit(ex,3); editLineups(exId, sc); return; }
+    if(b.dataset.act==="auto4"){ autoSplit(ex,4); editLineups(exId, sc); return; }
+    if(b.dataset.ren){ const t=ex.teams.find(x=>x.id===b.dataset.ren); const n=prompt("Team name", t.name); if(n){ t.name=n.trim(); save(); editLineups(exId, sc);} return; }
+    if(b.dataset.delt){ ex.teams=ex.teams.filter(x=>x.id!==b.dataset.delt); save(); editLineups(exId, sc); return; }
+    if(b.dataset.tg){
+      // Toggle in place — no rebuild, so the sheet does NOT scroll back to the top.
+      const [tid,pid]=b.dataset.tg.split("|");
+      const t=ex.teams.find(x=>x.id===tid);
+      const wasOn = t.playerIds.includes(pid);
+      if(wasOn){ t.playerIds=t.playerIds.filter(x=>x!==pid); }
+      else{ ex.teams.forEach(x=> x.playerIds=x.playerIds.filter(y=>y!==pid)); t.playerIds.push(pid); }
+      save();
+      const assignedTeam = wasOn ? null : tid;
+      sheet.querySelectorAll('[data-tg]').forEach(el=>{
+        const parts = el.dataset.tg.split("|");
+        if(parts[1] !== pid) return;
+        el.classList.toggle("on", parts[0] === assignedTeam);
+        el.classList.toggle("dim", assignedTeam !== null && parts[0] !== assignedTeam);
+      });
+    }
+  });
+}
+function editWinner(exId){
+  const ex = T().exercises.find(e=>e.id===exId); if(!ex) return;
+  const auto = new Set(winnersOf(ex));
+  const cur = ex.manualWinnerIds && ex.manualWinnerIds.length ? new Set(ex.manualWinnerIds) : auto;
+  let h = '<h2>Winner — '+esc(ex.name)+'</h2><p class="muted small">Tap the team(s) that win. Highest score is picked automatically; override here for draws or coach&rsquo;s call.</p><div class="chips">';
+  ex.teams.forEach(t=>{
+    h += '<button class="chip '+(cur.has(t.id)?'on':'')+'" data-w="'+t.id+'">'+esc(t.name)+' &middot; '+t.score+'</button>';
+  });
+  h += '</div><div class="hr"></div>'
+     + '<div class="row wrap"><button class="btn sm" data-act="clear">Reset to automatic</button>'
+     + '<span class="spacer"></span><button class="btn pri" data-act="close">Done</button></div>';
+  openModal(h);
+  document.querySelector("#modal .sheet").addEventListener("click", ev=>{
+    const b = ev.target.closest("button"); if(!b) return;
+    if(b.dataset.act==="close"){ closeModal(); render(); return; }
+    if(b.dataset.act==="clear"){ ex.manualWinnerIds=[]; save(); editWinner(exId); return; }
+    if(b.dataset.w){
+      const set = new Set(ex.manualWinnerIds && ex.manualWinnerIds.length ? ex.manualWinnerIds : winnersOf(ex));
+      set.has(b.dataset.w) ? set.delete(b.dataset.w) : set.add(b.dataset.w);
+      ex.manualWinnerIds = [...set];
+      save(); editWinner(exId);
+    }
+  });
+}
+function showHelp(){
+  openModal(
+    '<h2>How scoring works</h2>'
+    + '<p><b>During an exercise</b> tap a team&rsquo;s card to add a point (goals, rallies, whatever you count). The small &minus; button fixes mistakes.</p>'
+    + '<p><b>Finish exercise</b> locks it. The team with the highest score wins. Each player on a winning team earns <b>1 competition point</b> &mdash; or <b>3</b> if the exercise is flagged as the <span class="tag">END GAME</span>.</p>'
+    + '<p>Draws: every top team wins by default. Use <b>Edit winner</b> to override.</p>'
+    + '<p><b>Standings</b> has a <b>Week / Month / Season</b> switch. Week & Month show that period&rsquo;s points next to each player&rsquo;s season total; pick which week or month from the dropdown. Season = starting points + every banked training. The <b>incl. today</b> toggle adds the current unbanked training.</p>'
+    + '<p><b>End training</b> banks today&rsquo;s points into the month and season totals and clears the exercise list for next time.</p>'
+    + '<p><b>Sync</b> (status on the Exercises tab): every change is saved on this device and, when the cloud backend is set up, pushed to the cloud and your other devices. It works offline and catches up when you&rsquo;re back on. <b>Sync now</b> forces a check.</p>'
+    + '<p><b>Share to the group chat</b>: <i>Week</i> / <i>Month</i> / <i>Season image</i> make a clean PNG table you can send straight to WhatsApp &mdash; any time, from the Standings or Exercises tab. Week & Month images use the period picker on the Standings tab. The CSVs are still there: <i>summary</i> = one row per player (present, training, week, month, season); <i>detail</i> = one row per player per team for Python / the xlsx. <i>Backup</i> saves everything as JSON &mdash; do this occasionally so a Safari data wipe can&rsquo;t cost you the season.</p>'
+    + '<div class="hr"></div><button class="btn pri" data-close="1" style="width:100%">Got it</button>'
+  );
+  document.querySelector("#modal .sheet").addEventListener("click", e=>{ if(e.target.dataset.close) closeModal(); });
+}
+
+/* ---------- views ---------- */
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function viewNow(){
+  const ex = activeEx();
+  const others = T().exercises;
+  let h = '<div class="bar"><h1>Now</h1>';
+  if(others.length>1){
+    h += '<select id="exPick" class="btn sm" style="max-width:45%">'
+      + others.map(e=>'<option value="'+e.id+'"'+(ex&&e.id===ex.id?' selected':'')+'>'+esc(e.name)+(e.finished?' ✓':'')+'</option>').join("")
+      + '</select>';
+  }
+  h += '<button class="btn sm ghost" id="helpBtn">?</button></div>';
+  if(!storageOK) h += '<div class="warnbar">This browser is not letting the app save (private tab, or an unsupported in-app browser). '
+    + 'Open the real https:// link in Safari and use Add to Home Screen. Until then nothing is kept between launches &mdash; Backup often.</div>';
+  if(storageOK && (syncState==="offline" || syncState==="error"))
+    h += '<div class="warnbar">Not syncing right now ('+esc(cloudLabel())+'). Your scores are safe on this device and will sync when you&rsquo;re back online.</div>';
+
+  if(!ex){
+    h += '<div class="card"><p class="muted">No exercise yet.</p><button class="btn pri" id="newEx">+ New exercise</button></div>';
+    return h;
+  }
+
+  h += '<div class="card">'
+     + '<div class="row wrap" style="margin-bottom:10px">'
+     + '<button class="btn sm" id="renEx">'+esc(ex.name)+'</button>'
+     + '<button class="pill '+(ex.endGame?'on':'')+'" id="egToggle">END GAME &middot; 3 pts</button>'
+     + '<span class="spacer"></span>'
+     + '<button class="btn sm" id="lineups">Line-ups</button>'
+     + '</div>';
+
+  const w = new Set(ex.finished ? winnersOf(ex) : []);
+  h += '<div class="teams">';
+  ex.teams.forEach(t=>{
+    h += '<div class="team'+(w.has(t.id)?' win':'')+'" style="--tc:'+t.color+'" data-team="'+t.id+'">'
+       + (w.has(t.id)?'<span class="crown">👑</span>':'')
+       + (ex.finished?'':'<button class="minus" data-minus="'+t.id+'">&minus;</button>')
+       + '<div class="name">'+esc(t.name)+'</div>'
+       + '<div class="score" data-scoreedit="'+t.id+'">'+t.score+'</div>'
+       + (ex.finished?'<div class="small muted">'+(w.has(t.id)?('+'+pointsForWin(ex)+' pts each'):'&nbsp;')+'</div>'
+                     :'<div class="plus">+1</div>')
+       + '</div>';
+  });
+  h += '</div>';
+
+  h += '<div class="row wrap" style="margin-top:12px">';
+  if(!ex.finished){
+    h += '<button class="btn sm" id="addTeam">+ Add team</button><span class="spacer"></span>'
+       + '<button class="btn pri" id="finishEx">Finish exercise</button>';
+  }else{
+    const names = ex.teams.filter(t=>w.has(t.id)).map(t=>t.name).join(", ") || "nobody";
+    h += '<div class="grow small">🏆 <b>'+esc(names)+'</b> &mdash; '+pointsForWin(ex)+' pt'+(pointsForWin(ex)>1?'s':'')+' per player'+(ex.endGame?' (end game)':'')+'</div>'
+       + '<button class="btn sm" id="editWin">Edit winner</button>'
+       + '<button class="btn sm" id="reopen">Reopen</button>';
+  }
+  h += '</div></div>';
+
+  h += '<div class="row wrap"><button class="btn ghost" id="newEx">+ New exercise</button>'
+     + '<span class="spacer"></span><button class="btn ghost danger" id="delEx">Delete this exercise</button></div>';
+  return h;
+}
+
+function viewExercises(){
+  let h = '<div class="bar"><h1>Exercises</h1><button class="btn sm pri" id="newEx">+ New</button></div>';
+  h += '<div class="card"><label class="small muted">Training date</label>'
+     + '<input type="date" id="tDate" value="'+T().date+'"></div>';
+
+  if(!T().exercises.length){
+    h += '<div class="card muted">No exercises yet. Tap <b>+ New</b>.</div>';
+  }else{
+    h += '<div class="list">';
+    T().exercises.forEach(ex=>{
+      const w = new Set(winnersOf(ex));
+      const scores = ex.teams.map(t=>t.name+" "+t.score).join("  ·  ");
+      h += '<div class="item"><div class="grow">'
+         + '<div class="nm">'+esc(ex.name)+(ex.endGame?' <span class="tag">END GAME</span>':'')+(ex.finished?' ✓':'')+'</div>'
+         + '<div class="small muted">'+esc(scores||"no teams")+'</div>'
+         + (ex.finished?'<div class="small">🏆 '+esc(ex.teams.filter(t=>w.has(t.id)).map(t=>t.name).join(", ")||"—")+'</div>':'')
+         + '</div>'
+         + '<button class="btn sm" data-open="'+ex.id+'">Open</button>'
+         + '<button class="btn sm danger" data-del="'+ex.id+'">✕</button>'
+         + '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += '<div class="hr"></div><div class="card">'
+     + '<h3>Export &amp; end</h3>'
+     + '<div class="row wrap">'
+     + '<button class="btn pri" id="imgWeek">🖼️ Week image</button>'
+     + '<button class="btn pri" id="imgMonth">🖼️ Month image</button>'
+     + '<button class="btn pri" id="imgSeason">🖼️ Season image</button>'
+     + '</div><div class="row wrap" style="margin-top:8px">'
+     + '<button class="btn" id="expSum">📤 Summary CSV</button>'
+     + '<button class="btn" id="expDet">📤 Detail CSV</button>'
+     + '</div><div class="row wrap" style="margin-top:8px">'
+     + '<button class="btn ghost" id="syncNow">↻ Sync now</button>'
+     + '<button class="btn ghost" id="bk">Backup JSON</button>'
+     + '<button class="btn ghost" id="rs">Restore</button>'
+     + '<span class="spacer"></span>'
+     + '<button class="btn pri" id="endTr">End training</button>'
+     + '</div>'
+     + '<p class="small muted" style="margin-bottom:0">Sync: <b>'+cloudLabel()+'</b>'
+     +   (syncNote?' &middot; '+esc(syncNote):'')
+     +   ' &middot; banked trainings: '+S.history.length
+     +   ' &middot; this device: '+persistMode
+     +   ' &middot; saved '+(lastSaved?new Date(lastSaved).toLocaleTimeString():'—')+'</p>'
+     + '<p class="small muted" style="margin-bottom:0">'
+     +   (syncState==="off"
+        ? 'No cloud backend on this address &mdash; data is kept on this device only. Deploy with the sync function (see the README) for cross-device.'
+        : 'Every change syncs to the cloud and to your other devices. Works offline and catches up when you&rsquo;re back on. Backup JSON is still a good idea now and then.')
+     + '</p>'
+     + '</div>';
+  return h;
+}
+
+function viewPlayers(){
+  let h = '<div class="bar"><h1>Players</h1><button class="btn sm pri" id="addP">+ Add</button></div>';
+  h += '<div class="card small muted">Tick who is here today (used for auto-split and shown in the export). '
+     + '&ldquo;Start&rdquo; = points this player already had before you began using this app.</div>';
+  if(!S.roster.length){
+    h += '<div class="card muted">No players yet. Tap <b>+ Add</b> to build the season roster.</div>';
+    return h;
+  }
+  const present = new Set(T().presentIds);
+  h += '<div class="list">';
+  S.roster.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    h += '<div class="item">'
+       + '<button class="pill '+(present.has(p.id)?'on':'')+'" data-here="'+p.id+'">'+(present.has(p.id)?'Here':'Away')+'</button>'
+       + '<div class="grow nm">'+esc(p.name)+'</div>'
+       + '<label class="small muted">start</label>'
+       + '<input type="number" inputmode="numeric" style="width:64px" value="'+Number(S.startingPoints[p.id]||0)+'" data-start="'+p.id+'">'
+       + '<button class="btn sm" data-renp="'+p.id+'">✎</button>'
+       + '<button class="btn sm danger" data-delp="'+p.id+'">✕</button>'
+       + '</div>';
+  });
+  h += '</div><p class="small muted">Here today: '+present.size+' / '+S.roster.length+'</p>';
+  return h;
+}
+
+function viewStandings(){
+  const inc = S.ui.standingsIncludeToday;
+  const period = S.ui.period || "season";                 // week | month | season
+  const isSeason = period === "season";
+  const wk = S.ui.week, mk = S.ui.month;
+  const season = seasonTotals(inc);
+  const primary = period === "week"  ? weekTotals(wk, inc)
+                : period === "month" ? monthTotals(mk, inc)
+                :                      season;
+  const ordered = S.roster.slice().sort((a,b)=> (primary[b.id]-primary[a.id]) || a.name.localeCompare(b.name));
+  const colLabel = period === "week" ? "This week" : period === "month" ? monthName(mk) : "Season";
+
+  let h = '<div class="bar"><h1>Standings</h1>'
+        + '<button class="pill '+(inc?'on':'')+'" id="incToday">'+(inc?'incl. today':'banked only')+'</button></div>';
+  if(!S.roster.length){ h += '<div class="card muted">No players yet.</div>'; return h; }
+
+  h += '<div class="row" style="margin-bottom:8px">'
+     + '<button class="pill '+(period==="week"?"on":"")+'" data-period="week">Week</button>'
+     + '<button class="pill '+(period==="month"?"on":"")+'" data-period="month">Month</button>'
+     + '<button class="pill '+(isSeason?"on":"")+'" data-period="season">Season</button>'
+     + '</div>';
+
+  if(period === "week"){
+    h += '<select id="wkPick" class="btn sm" style="width:100%;margin-bottom:10px">'
+       + historyWeeks().map(k=>'<option value="'+k+'"'+(k===wk?' selected':'')+'>'+esc(weekName(k))+'</option>').join('')
+       + '</select>';
+  }else if(period === "month"){
+    h += '<select id="moPick" class="btn sm" style="width:100%;margin-bottom:10px">'
+       + historyMonths().map(k=>'<option value="'+k+'"'+(k===mk?' selected':'')+'>'+esc(monthName(k))+'</option>').join('')
+       + '</select>';
+  }
+
+  h += '<div class="item" style="font-weight:700;font-size:12px;color:var(--muted)">'
+     + '<div class="rank">#</div><div class="grow">Player</div>'
+     + '<div class="col">'+esc(colLabel)+'</div>'
+     + (isSeason ? '' : '<div class="col">Season</div>')
+     + '</div>';
+  h += '<div class="list">';
+  ordered.forEach((p,i)=>{
+    h += '<div class="item"><div class="rank">'+(i+1)+'</div>'
+       + '<div class="grow nm">'+esc(p.name)+'</div>'
+       + '<div class="col num hi">'+(primary[p.id]||0)+'</div>'
+       + (isSeason ? '' : '<div class="col num">'+(season[p.id]||0)+'</div>')
+       + '</div>';
+  });
+  h += '</div>';
+
+  h += '<div class="row wrap" style="margin-top:8px">'
+     + '<button class="btn pri" id="imgWeek">🖼️ Week image</button>'
+     + '<button class="btn pri" id="imgMonth">🖼️ Month image</button>'
+     + '<button class="btn pri" id="imgSeason">🖼️ Season image</button>'
+     + '</div>'
+     + '<div class="row wrap" style="margin-top:6px"><button class="btn ghost" id="expSum">📤 Summary CSV</button></div>'
+     + '<p class="small muted">Week / Month images use the period &amp; picker above. '
+     +   (inc?'Totals include today&rsquo;s unbanked points. ':'')
+     +   'Images share straight to the group chat.</p>';
+  return h;
+}
+
+/* ---------- render + events ---------- */
+function render(){
+  const app = document.getElementById("app");
+  const v = S.ui.view;
+  app.innerHTML = v==="exercises" ? viewExercises()
+                : v==="players"   ? viewPlayers()
+                : v==="standings" ? viewStandings()
+                : viewNow();
+  [...document.querySelectorAll(".nav button")].forEach(b=> b.classList.toggle("on", b.dataset.go===v));
+  wire();
+}
+function renderNow(){ if(S.ui.view==="now") render(); }
+
+// View / display prefs are device-local: write them here so they don't count as a
+// data change (no cloud push, no updatedAt bump).
+function saveUi(){ saveLocal(); }
+function go(v){ S.ui.view=v; saveUi(); render(); }
+
+function wire(){
+  const $ = s => document.getElementById(s);
+  const on = (id,ev,fn)=>{ const el=$(id); if(el) el.addEventListener(ev,fn); };
+
+  on("helpBtn","click",showHelp);
+  on("newEx","click",addExercise);
+
+  // NOW view
+  const ex = activeEx();
+  if(S.ui.view==="now" && ex){
+    on("exPick","change",e=>{ S.activeExerciseId=e.target.value; save(); render(); });
+    on("renEx","click",()=>{ const n=prompt("Exercise name", ex.name); if(n){ ex.name=n.trim(); save(); render(); } });
+    on("egToggle","click",()=>{ ex.endGame=!ex.endGame; save(); render(); });
+    on("lineups","click",()=>editLineups(ex.id));
+    on("addTeam","click",()=>{ addTeam(ex); save(); render(); });
+    on("finishEx","click",()=>{
+      if(assignedInExercise(ex).size===0 && !confirm("No players are assigned to teams. Finish anyway?")) return;
+      ex.finished=true; save(); render();
+    });
+    on("reopen","click",()=>{ ex.finished=false; save(); render(); });
+    on("editWin","click",()=>editWinner(ex.id));
+    on("delEx","click",()=>{ if(confirm("Delete "+ex.name+"?")) removeExercise(ex.id); });
+    document.querySelectorAll("[data-team]").forEach(el=>{
+      el.addEventListener("click",e=>{
+        if(e.target.closest("[data-minus]") || e.target.closest("[data-scoreedit]")) return;
+        bump(ex, el.dataset.team, +1);
+      });
+    });
+    document.querySelectorAll("[data-minus]").forEach(el=>{
+      el.addEventListener("click",e=>{ e.stopPropagation(); bump(ex, el.dataset.minus, -1); });
+    });
+    document.querySelectorAll("[data-scoreedit]").forEach(el=>{
+      el.addEventListener("click",e=>{
+        e.stopPropagation();
+        if(ex.finished) return;
+        const t=ex.teams.find(x=>x.id===el.dataset.scoreedit);
+        const n=prompt("Set score for "+t.name, t.score);
+        if(n!==null && n!==""){ t.score=Math.max(0,parseInt(n,10)||0); save(); renderNow(); }
+      });
+    });
+  }
+
+  // EXERCISES view
+  if(S.ui.view==="exercises"){
+    on("tDate","change",e=>{ T().date=e.target.value||todayISO(); save(); });
+    document.querySelectorAll("[data-open]").forEach(el=> el.addEventListener("click",()=>{ S.activeExerciseId=el.dataset.open; S.ui.view="now"; save(); render(); }));
+    document.querySelectorAll("[data-del]").forEach(el=> el.addEventListener("click",()=>{ if(confirm("Delete this exercise?")) removeExercise(el.dataset.del); }));
+    on("imgWeek","click",()=>exportStandingsImage("week"));
+    on("imgMonth","click",()=>exportStandingsImage("month"));
+    on("imgSeason","click",()=>exportStandingsImage("season"));
+    on("expSum","click",exportSummary);
+    on("expDet","click",exportDetail);
+    on("syncNow","click",()=>{ if(pushPending) cloudFlush(); else cloudPull(); });
+    on("bk","click",exportBackup);
+    on("rs","click",importBackup);
+    on("endTr","click",finishTraining);
+  }
+
+  // PLAYERS view
+  if(S.ui.view==="players"){
+    on("addP","click",()=>{
+      const n=prompt("Player name (add several, separated by commas)");
+      if(!n) return;
+      n.split(",").map(x=>x.trim()).filter(Boolean).forEach(nm=> S.roster.push({id:uid(), name:nm}));
+      save(); render();
+    });
+    document.querySelectorAll("[data-here]").forEach(el=> el.addEventListener("click",()=>{
+      const id=el.dataset.here; const s=new Set(T().presentIds);
+      s.has(id)?s.delete(id):s.add(id); T().presentIds=[...s]; save(); render();
+    }));
+    document.querySelectorAll("[data-start]").forEach(el=> el.addEventListener("change",()=>{
+      S.startingPoints[el.dataset.start]=parseInt(el.value,10)||0; save();
+    }));
+    document.querySelectorAll("[data-renp]").forEach(el=> el.addEventListener("click",()=>{
+      const p=S.roster.find(x=>x.id===el.dataset.renp); const n=prompt("Player name", p.name);
+      if(n){ p.name=n.trim(); save(); render(); }
+    }));
+    document.querySelectorAll("[data-delp]").forEach(el=> el.addEventListener("click",()=>{
+      const p=S.roster.find(x=>x.id===el.dataset.delp);
+      if(!confirm("Remove "+p.name+"? They stay in already-banked trainings but leave the roster and all current teams.")) return;
+      S.roster=S.roster.filter(x=>x.id!==p.id);
+      delete S.startingPoints[p.id];
+      T().presentIds=T().presentIds.filter(x=>x!==p.id);
+      T().exercises.forEach(ex=> ex.teams.forEach(t=> t.playerIds=t.playerIds.filter(x=>x!==p.id)));
+      save(); render();
+    }));
+    on("expSum","click",exportSummary);
+  }
+
+  // STANDINGS view
+  if(S.ui.view==="standings"){
+    on("incToday","click",()=>{ S.ui.standingsIncludeToday=!S.ui.standingsIncludeToday; saveUi(); render(); });
+    document.querySelectorAll("[data-period]").forEach(el=> el.addEventListener("click",()=>{ S.ui.period=el.dataset.period; saveUi(); render(); }));
+    on("wkPick","change",e=>{ S.ui.week=e.target.value; saveUi(); render(); });
+    on("moPick","change",e=>{ S.ui.month=e.target.value; saveUi(); render(); });
+    on("imgWeek","click",()=>exportStandingsImage("week"));
+    on("imgMonth","click",()=>exportStandingsImage("month"));
+    on("imgSeason","click",()=>exportStandingsImage("season"));
+    on("expSum","click",exportSummary);
+  }
+}
+
+document.getElementById("nav").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(b) go(b.dataset.go);
+});
+
+render();
+cloudInit();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>

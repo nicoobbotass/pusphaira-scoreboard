@@ -1,0 +1,4 @@
+# Netlify: serve the static files from this folder and run the sync function.
+[build]
+  publish = "."
+  functions = "netlify/functions"
