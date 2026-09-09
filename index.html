@@ -44,6 +44,9 @@
     border:1px solid var(--turf-lo); border-radius:3px; padding:.55em .7em; width:100%;
     -webkit-user-select:text; user-select:text; caret-color:var(--turf);
   }
+  input[type=date]{ text-align:center; -webkit-appearance:none; appearance:none; min-height:2.6em }
+  input[type=date]::-webkit-date-and-time-value{ text-align:center; width:100%; margin:0 }
+  input[type=date]::-webkit-datetime-edit{ text-align:center; width:100%; padding:0 }
   input:focus{outline:2px solid var(--flag); outline-offset:1px}
 
   .page{max-width:760px; margin:0 auto; padding:16px 15px 96px; position:relative}
@@ -57,7 +60,7 @@
   }
   .btn:active{transform:translateY(1px); opacity:.8}
   .btn.pri{background:var(--flag); border-color:var(--flag); color:var(--flag-ink); font-weight:700}
-  .btn.ghost{border-color:transparent; color:var(--chalk-dim); padding-left:.3em; padding-right:.3em}
+  .btn.ghost{background:rgba(255,255,255,.04); border-color:var(--turf-hi); color:var(--chalk)}
   .btn.sm{padding:.4em .8em; font-size:12px}
   .btn.danger{color:var(--redcard); border-color:color-mix(in srgb,var(--redcard) 45%, transparent)}
   select.btn{background:var(--turf-lo); border-color:var(--turf-hi); color:var(--chalk)}
@@ -103,9 +106,12 @@
   }
   .team .score{position:relative}
   .team .plus{
-    margin:0; padding:2px 0 0; background:transparent; border:0;
-    font-family:var(--sans); font-weight:600; font-size:12px; letter-spacing:.02em; color:var(--chalk-dim);
+    display:block; width:100%; margin-top:2px; padding:.55em 0; border:0; border-radius:9px;
+    background:var(--chalk); color:var(--turf-lo);
+    font-family:var(--sans); font-weight:800; font-size:17px; letter-spacing:.02em;
+    box-shadow:0 3px 0 rgba(0,0,0,.35);
   }
+  .team .plus:active{transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.35)}
   .team .minus{
     position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:999px;
     background:var(--turf-lo); border:1px solid var(--turf-hi); color:var(--chalk); font-weight:700; font-size:18px;
@@ -746,7 +752,7 @@ function viewNow(){
        + '<div class="name">'+esc(t.name)+'</div>'
        + '<div class="score" data-scoreedit="'+t.id+'">'+t.score+'</div>'
        + (ex.finished?'<div class="small muted">'+(w.has(t.id)?('+'+pointsForWin(ex)+' pts each'):'&nbsp;')+'</div>'
-                     :'<div class="plus">+1</div>')
+                     :'<button type="button" class="plus">+1</button>')
        + '</div>';
   });
   h += '</div>';
