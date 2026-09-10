@@ -234,10 +234,13 @@
   .deschead{padding:12px 14px; font-weight:800; font-size:17px; letter-spacing:.02em}
   .deschead.home{background:color-mix(in srgb, var(--gblue) 30%, var(--turf)); color:#cfe0ff}
   .deschead.away{background:color-mix(in srgb, var(--gred) 26%, var(--turf)); color:#ffd6d6}
-  .descgrid{flex:1 1 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; padding:12px; overflow-y:auto; align-content:start}
-  .descchip{min-height:54px; border:2px solid var(--turf-hi); border-radius:10px; padding:.7em .5em; background:rgba(255,255,255,.04); color:var(--chalk); font-weight:700; font-size:14px}
+  .descgrid{flex:0 1 auto; min-height:0; margin:auto 0; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; padding:14px; overflow-y:auto}
+  .descchip{flex:0 0 auto; min-width:150px; min-height:54px; display:flex; align-items:center; justify-content:center; text-align:center;
+    border:2px solid var(--turf-hi); border-radius:10px; padding:.7em 1em; background:rgba(255,255,255,.04); color:var(--chalk); font-weight:700; font-size:14px}
   .descchip.on{background:var(--flag); color:var(--flag-ink); border-color:var(--flag)}
   .descchip:active{filter:brightness(1.15)}
+  .descrow{flex:0 0 auto; padding:8px 12px 0}
+  .descrow select, .descrow input{width:100%}
   .descfoot{flex:0 0 auto; display:grid; grid-template-columns:1fr 2fr; gap:8px; padding:10px}
   .descfoot .control{margin:0}
 
@@ -324,7 +327,7 @@ function newTraining(){ return { date: todayISO(), presentIds: [], exercises: []
 // Game mode: a live match-event log. Device-local only (never pushed to the cloud).
 function newGame(){
   return {
-    teams: { home:"Blue", away:"Red" },
+    teams: { home:"Pusphaira", away:"Red" },   // home is always Pusphaira (blue, left)
     phase: "idle",          // idle | firstHalf | halfTime | secondHalf | ended
     half: 1,
     running: false,
@@ -1391,9 +1394,8 @@ function animateStoppageOutThen(cb){
 function controlPress(){
   const g = G();
   if(g.phase === "idle"){
-    const hn = (document.getElementById("homeName")||{}).value;
     const an = (document.getElementById("awayName")||{}).value;
-    g.teams.home = (hn||"").trim() || "Blue";
+    g.teams.home = "Pusphaira";
     g.teams.away = (an||"").trim() || "Red";
     g.phase="firstHalf"; g.half=1; g.running=true; g.segStart=Date.now(); g.accMs=0; g.startedTs=Date.now();
     saveGame(); renderGame();
@@ -1420,13 +1422,16 @@ function controlClass(){
   return G().phase==="firstHalf" ? "amber" : G().phase==="secondHalf" ? "red" : "green";
 }
 
-function openDescriptors(action, team){ descCtx = { action, team, sel:new Set() }; gameScreen="descriptors"; renderGame(); }
+function openDescriptors(action, team){ descCtx = { action, team, sel:new Set(), playerId:null, note:"" }; gameScreen="descriptors"; renderGame(); }
 function cancelDescriptors(){ descCtx=null; gameScreen="main"; renderGame(); }
 function saveDescriptors(){
   if(!descCtx) return;
+  captureDescExtras();
   const cs = clockState();
   G().events.push({
     id: uid(), team: descCtx.team, action: descCtx.action, descriptors:[...descCtx.sel],
+    playerId: descCtx.team==="home" ? (descCtx.playerId||null) : null,
+    note: (descCtx.note||"").trim(),
     half: G().half, mainMs: cs.mainMs, stoppageMs: cs.stoppageMs, ts: Date.now()
   });
   descCtx=null; gameScreen="main"; saveGame(); renderGame();
@@ -1440,6 +1445,7 @@ function newGameConfirm(){
 
 function renderGame(){
   const g = G(), cs = clockState();
+  g.teams.home = "Pusphaira";                 // blue / left is always Pusphaira
   let h = '<div class="gamewrap">';
 
   // clock bar — always on
@@ -1458,11 +1464,9 @@ function renderGame(){
     h += renderDescriptors();
   }else if(g.phase === "idle"){
     h += '<div class="gcenter">'
-       + '<p class="muted small" style="margin:0 0 4px">Name the teams, then start. The clock runs from kick-off.</p>'
-       + '<label class="small home-l">Left / blue</label>'
-       + '<input type="text" id="homeName" value="'+esc(g.teams.home)+'" maxlength="18">'
-       + '<label class="small away-l" style="margin-top:8px">Right / red</label>'
-       + '<input type="text" id="awayName" value="'+esc(g.teams.away)+'" maxlength="18">'
+       + '<p class="muted small" style="margin:0 0 4px">Left is <b class="home-l">Pusphaira</b>. Name the opponent, then kick off &mdash; the clock runs from the whistle.</p>'
+       + '<label class="small away-l">Right / red &mdash; opponent</label>'
+       + '<input type="text" id="awayName" value="'+esc(g.teams.away==="Red"?"":g.teams.away)+'" placeholder="Opponent" maxlength="18">'
        + '</div>';
     h += gControl();
   }else{
@@ -1497,17 +1501,38 @@ function renderDescriptors(){
   const list = G_DESC[descCtx.action] || [];
   const tname = descCtx.team==="home" ? G().teams.home : G().teams.away;
   let h = '<div class="descwrap">'
-    + '<div class="deschead '+descCtx.team+'">'+esc(tname)+' &mdash; '+descCtx.action+'</div>'
-    + '<div class="descgrid">';
+    + '<div class="deschead '+descCtx.team+'">'+esc(tname)+' &mdash; '+descCtx.action+'</div>';
+  // Player picker — Pusphaira (home) only
+  if(descCtx.team==="home"){
+    if(S.roster.length){
+      h += '<div class="descrow"><select id="descPlayer" class="btn">'
+         + '<option value="">Player &mdash; optional</option>'
+         + S.roster.slice().sort((a,b)=>a.name.localeCompare(b.name))
+             .map(p=>'<option value="'+p.id+'"'+(descCtx.playerId===p.id?' selected':'')+'>'+esc(p.name)+'</option>').join('')
+         + '</select></div>';
+    }else{
+      h += '<div class="descrow"><p class="muted small" style="margin:0">Add players on the Players tab to tag who did it.</p></div>';
+    }
+  }
+  h += '<div class="descgrid">';
   list.forEach(d=>{
-    h += '<button class="descchip" data-desc="'+esc(d)+'">'+esc(d)+'</button>';
+    h += '<button class="descchip'+(descCtx.sel.has(d)?' on':'')+'" data-desc="'+esc(d)+'">'+esc(d)+'</button>';
   });
   h += '</div>'
+    + '<div class="descrow"><input type="text" id="descNote" placeholder="Note (optional)" maxlength="140" value="'+esc(descCtx.note||"")+'"></div>'
     + '<div class="descfoot">'
     + '<button class="control grey" id="descCancel">Cancel</button>'
     + '<button class="control green" id="descSave">Save</button>'
     + '</div></div>';
   return h;
+}
+// keep the select / note in descCtx so they survive if the screen re-renders
+function captureDescExtras(){
+  if(!descCtx) return;
+  const sel = document.getElementById("descPlayer");
+  const note = document.getElementById("descNote");
+  if(sel) descCtx.playerId = sel.value || null;
+  if(note) descCtx.note = note.value;
 }
 function renderReport(){
   const g = G(), t = gTally("home"), a = gTally("away");
@@ -1529,10 +1554,12 @@ function renderReport(){
   else{
     h += '<div class="tline">';
     g.events.slice().forEach(e=>{
+      const pn = e.playerId ? playerName(e.playerId) : "";
       h += '<div class="tev '+e.team+'">'
          + '<span class="tt">'+eventTimeText(e)+'</span>'
          + '<span class="ta">'+esc(e.action)+'</span>'
-         + '<span class="td">'+esc(e.descriptors.join(", "))+'</span></div>';
+         + '<span class="td">'+(pn?'<b>'+esc(pn)+'</b> &middot; ':'')+esc(e.descriptors.join(", "))
+         +   (e.note?' <i>&ldquo;'+esc(e.note)+'&rdquo;</i>':'')+'</span></div>';
     });
     h += '</div>';
   }
@@ -1561,15 +1588,17 @@ function wireGame(){
     const d = b.dataset.desc;
     if(descCtx.sel.has(d)){ descCtx.sel.delete(d); b.classList.remove("on"); }
     else { descCtx.sel.add(d); b.classList.add("on"); }
+    captureDescExtras();
   }));
 }
 
 /* ----- game exports ----- */
 function matchCSV(){
   const g = G();
-  const rows = [["time","half","team","action","descriptors"]];
+  const rows = [["time","half","team","player","action","descriptors","note"]];
   g.events.forEach(e=>{
-    rows.push([ eventTimeText(e), e.half, e.team==="home"?g.teams.home:g.teams.away, e.action, e.descriptors.join("|") ]);
+    rows.push([ eventTimeText(e), e.half, e.team==="home"?g.teams.home:g.teams.away,
+      e.playerId?playerName(e.playerId):"", e.action, e.descriptors.join("|"), e.note||"" ]);
   });
   return toCSV(rows);
 }
@@ -1622,7 +1651,8 @@ function matchReportCanvas(){
     x.fillStyle=INK; x.font="700 24px "+F;
     x.fillText(e.action, padX+150, y+22);
     x.fillStyle=DIM; x.font="400 21px "+F;
-    let dd = e.descriptors.join(", ");
+    let dd = (e.playerId?playerName(e.playerId)+" · ":"") + e.descriptors.join(", ")
+           + (e.note?"  “"+e.note+"”":"");
     const maxW = W - padX - 340;
     if(x.measureText(dd).width > maxW){ while(dd.length>1 && x.measureText(dd+"…").width>maxW) dd=dd.slice(0,-1); dd+="…"; }
     x.fillText(dd, padX+330, y+22);
