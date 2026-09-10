@@ -92,7 +92,7 @@
     background:
       radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tc,#888) 42%, var(--turf-lo)), color-mix(in srgb, var(--tc,#888) 20%, var(--turf-lo)));
     box-shadow:var(--lift), inset 0 1px 0 rgba(255,255,255,.16);
-    min-height:140px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:6px;
+    min-height:132px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
     cursor:pointer;
   }
   .team .name{font-family:var(--sans); font-weight:700; font-size:14px; letter-spacing:0; color:var(--chalk); word-break:break-word}
@@ -112,13 +112,7 @@
   @keyframes flap{0%{transform:rotateX(-88deg)}60%{transform:rotateX(7deg)}100%{transform:rotateX(0)}}
   @media (prefers-reduced-motion:reduce){ .team .score.bump{animation:none} }
   .viewonly .team{cursor:default}
-  .team .plus{
-    display:block; width:100%; margin-top:2px; padding:.55em 0; border:0; border-radius:9px;
-    background:var(--chalk); color:var(--turf-lo);
-    font-family:var(--sans); font-weight:800; font-size:17px; letter-spacing:.02em;
-    box-shadow:0 3px 0 rgba(0,0,0,.35);
-  }
-  .team .plus:active{transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.35)}
+  body:not(.viewonly) .team:active .score{filter:brightness(1.28)}   /* tap feedback on the tile */
   .team .minus{
     position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:999px;
     background:var(--turf-lo); border:1px solid var(--turf-hi); color:var(--chalk); font-weight:700; font-size:18px;
@@ -404,8 +398,10 @@ function afterSync(){
 }
 function cloudBodyForPush(){ const c = JSON.parse(JSON.stringify(S)); delete c.ui; return c; }
 
+let lastPullAt = 0;
 async function cloudPull(opts){
   opts = opts || {};
+  lastPullAt = Date.now();
   try{
     const r = await fetch(CLOUD, { cache:"no-store", headers: authHeaders() });
     if(r.status === 404){ syncState = "off"; if(authRole!=="edit"){ authRole="edit"; render(); } afterSync(); return; }
@@ -435,7 +431,7 @@ function cloudPush(now){
   if(!canEdit()) return;                       // view-only devices never push
   pushPending = true;
   clearTimeout(pushTimer);
-  pushTimer = setTimeout(cloudFlush, now ? 0 : 1200);
+  pushTimer = setTimeout(cloudFlush, now ? 0 : 2500);   // coalesce bursts of taps into one write
 }
 async function cloudFlush(){
   if(!pushPending) return;
@@ -445,7 +441,8 @@ async function cloudFlush(){
     const r = await fetch(CLOUD, {
       method:"PUT",
       headers: Object.assign({ "content-type":"application/json" }, authHeaders()),
-      body: JSON.stringify(cloudBodyForPush())
+      body: JSON.stringify(cloudBodyForPush()),
+      keepalive: true                       // let a flush finish even if the page is closing
     });
     if(r.status === 404){ syncState = "off"; pushPending = false; afterSync(); return; }
     if(r.status === 401){ clearAuth(); pushPending = false; syncState = "locked"; afterSync(); showGate(); return; }
@@ -460,16 +457,30 @@ async function cloudFlush(){
   }
   afterSync();
 }
+// How often to poll the cloud for other devices' changes. Kept deliberately low to
+// keep Netlify function usage down: editors 2 min, view-only devices 5 min. Pushes
+// still go out on every change, and "Sync now" (Exercises tab) forces an immediate pull.
+function pollMs(){ return canEdit() ? 120000 : 300000; }
+function maybePull(force){
+  if(syncState === "off" || syncState === "locked" || pushPending) return;
+  if(document.visibilityState !== "visible") return;
+  if(!force && Date.now() - lastPullAt < 25000) return;
+  cloudPull();
+}
 function cloudInit(){
   cloudPull();
-  addEventListener("online",  () => { if(pushPending) cloudFlush(); else cloudPull(); });
+  addEventListener("online",  () => { if(pushPending) cloudFlush(); else maybePull(true); });
   addEventListener("offline", () => { syncState = "offline"; afterSync(); });
+  addEventListener("pagehide", () => { if(pushPending) cloudFlush(); });
   document.addEventListener("visibilitychange", () => {
-    if(document.visibilityState === "visible" && syncState !== "off" && !pushPending) cloudPull();
+    if(document.visibilityState === "hidden"){ if(pushPending) cloudFlush(); return; }
+    maybePull();
   });
   setInterval(() => {
-    if(document.visibilityState === "visible" && syncState !== "off" && !pushPending) cloudPull();
-  }, 45000);
+    if(syncState === "off" || syncState === "locked" || pushPending) return;
+    if(document.visibilityState !== "visible") return;
+    if(Date.now() - lastPullAt >= pollMs()) cloudPull();
+  }, 30000);
 }
 
 /* ---------- model helpers ---------- */
@@ -1021,7 +1032,7 @@ function viewNow(){
      + (E ? '<button class="btn sm" id="lineups">Line-ups</button>' : '')
      + '</div>';
   if(E && !ex.finished)
-    h += '<p class="small muted" style="margin:-2px 0 10px">Tap a team to add a point. Hold a team to set an exact score.</p>';
+    h += '<p class="small muted" style="margin:-2px 0 10px">Tap a team to add a point. Press and hold to set an exact score. The small &minus; takes one off.</p>';
 
   const w = new Set(ex.finished ? winnersOf(ex) : []);
   h += '<div class="teams">';
@@ -1031,8 +1042,7 @@ function viewNow(){
        + ((ex.finished||!E)?'':'<button class="minus" data-minus="'+t.id+'">&minus;</button>')
        + '<div class="name">'+esc(t.name)+'</div>'
        + '<div class="score'+(flashTeam===t.id?' bump':'')+'">'+t.score+'</div>'
-       + (ex.finished?'<div class="small muted">'+(w.has(t.id)?('+'+pointsForWin(ex)+' pts each'):'&nbsp;')+'</div>'
-          : (E?'<button type="button" class="plus">+1</button>':''))
+       + (ex.finished?'<div class="small muted">'+(w.has(t.id)?('+'+pointsForWin(ex)+' pts each'):'&nbsp;')+'</div>':'')
        + '</div>';
   });
   h += '</div>';
