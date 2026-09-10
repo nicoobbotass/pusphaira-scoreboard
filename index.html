@@ -19,12 +19,15 @@
     --sheet:#eae6d9; --sheet-ink:#1b2a22;
     --flag:#f2c12e; --flag-ink:#20180a;
     --redcard:#d23b2f;
+    --gblue:#2f6bff; --gblue-l:#8ab4ff; --gred:#ff3b3b; --gred-l:#ff9a9a;
+    --ggreen:#28c76f;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --lift:0 2px 6px rgba(0,0,0,.38);
     --safe-b: env(safe-area-inset-bottom, 0px);
     --safe-t: env(safe-area-inset-top, 0px);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  [hidden]{display:none !important}
   html,body{margin:0; padding:0}
   body{
     background:radial-gradient(130% 90% at 50% -10%, #25563f 0%, #1c402f 60%, #173525 100%) fixed, var(--turf);
@@ -179,6 +182,81 @@
   .tag{font-family:var(--sans); font-size:11px; padding:.16em .5em; border-radius:3px;
     background:var(--redcard); color:#fff; font-weight:700; letter-spacing:.02em}
 
+  /* ---------- mode switch ---------- */
+  .modebar{display:flex; align-items:center; gap:10px; justify-content:center; margin:-2px 0 14px; font-size:12px; font-weight:600; color:var(--chalk-dim)}
+  .modebar .lit{color:var(--chalk)}
+  .switch{width:46px; height:27px; border-radius:999px; background:var(--turf-lo); border:1px solid var(--turf-hi); padding:2px; flex:none; transition:background .15s; cursor:pointer}
+  .switch .knob{display:block; width:21px; height:21px; border-radius:50%; background:var(--chalk); transition:transform .16s ease}
+  .switch.on{background:var(--ggreen); border-color:var(--ggreen)}
+  .switch.on .knob{transform:translateX(19px)}
+  .switch.small{width:40px; height:24px}
+  .switch.small .knob{width:18px; height:18px}
+  .switch.small.on .knob{transform:translateX(16px)}
+
+  /* ---------- game mode ---------- */
+  body.gamemode .nav{display:none}
+  body.gamemode #app{padding:0; max-width:none}
+  .gamewrap{display:flex; flex-direction:column; min-height:100vh; min-height:100dvh; padding-bottom:var(--safe-b)}
+  .clockbar{flex:0 0 auto; position:relative; text-align:center; padding:10px 14px 12px;
+    background:var(--turf-2); border-bottom:1px solid var(--turf-hi)}
+  .clockbar .switch{position:absolute; left:12px; top:14px}
+  .clockmain{display:flex; align-items:baseline; justify-content:center; gap:10px;
+    font-variant-numeric:tabular-nums; font-weight:800; font-size:44px; line-height:1; letter-spacing:.02em; color:var(--chalk)}
+  .stoppage{display:inline-block; max-width:170px; overflow:hidden; white-space:nowrap;
+    font-size:22px; font-weight:700; color:var(--flag)}
+  .stoppage.leaving{animation:stoppageOut .36s ease forwards}
+  @keyframes stoppageOut{to{opacity:0; transform:translateX(14px) scale(.75); max-width:0; margin-left:-10px}}
+  .teamrow{display:flex; justify-content:space-between; margin-top:7px; font-weight:700; font-size:13px}
+  .teamrow .home{color:var(--gblue-l)}  .teamrow .away{color:var(--gred-l)}
+  .teamrow b{font-size:16px; margin:0 3px}
+
+  .gamemain{flex:1 1 auto; display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px; overflow-y:auto}
+  .gside{display:flex; flex-direction:column; gap:8px}
+  .gbtn{flex:1; min-height:46px; border-radius:10px; color:#fff; font-weight:800; font-size:16px; letter-spacing:.02em; border:2px solid transparent}
+  .gside.home .gbtn{background:color-mix(in srgb, var(--gblue) 80%, #000); border-color:color-mix(in srgb, var(--gblue) 55%, #fff)}
+  .gside.away .gbtn{background:color-mix(in srgb, var(--gred) 72%, #000); border-color:color-mix(in srgb, var(--gred) 50%, #fff)}
+  .gbtn:active{filter:brightness(1.3)}
+
+  .undo{flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:10px; padding:6px 10px; font-size:12px; color:var(--chalk-dim)}
+  .undo button{border:1px solid var(--turf-hi); border-radius:999px; padding:.3em .85em; color:var(--chalk); font-weight:600}
+
+  .control{flex:0 0 auto; margin:10px; padding:.95em; border-radius:12px; border:0; font-weight:800; font-size:18px; letter-spacing:.03em; color:#04140b}
+  .control.green{background:var(--ggreen)}
+  .control.amber{background:var(--flag); color:#20180a}
+  .control.red{background:var(--gred); color:#fff}
+  .control.grey{background:var(--turf-hi); color:var(--chalk)}
+  .control:active{filter:brightness(1.09)}
+
+  .gcenter{flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; gap:5px; padding:22px}
+  .gcenter .home-l{color:var(--gblue-l)}  .gcenter .away-l{color:var(--gred-l)}
+
+  .descwrap{flex:1 1 auto; display:flex; flex-direction:column; min-height:0}
+  .deschead{padding:12px 14px; font-weight:800; font-size:17px; letter-spacing:.02em}
+  .deschead.home{background:color-mix(in srgb, var(--gblue) 30%, var(--turf)); color:#cfe0ff}
+  .deschead.away{background:color-mix(in srgb, var(--gred) 26%, var(--turf)); color:#ffd6d6}
+  .descgrid{flex:1 1 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; padding:12px; overflow-y:auto; align-content:start}
+  .descchip{min-height:54px; border:2px solid var(--turf-hi); border-radius:10px; padding:.7em .5em; background:rgba(255,255,255,.04); color:var(--chalk); font-weight:700; font-size:14px}
+  .descchip.on{background:var(--flag); color:var(--flag-ink); border-color:var(--flag)}
+  .descchip:active{filter:brightness(1.15)}
+  .descfoot{flex:0 0 auto; display:grid; grid-template-columns:1fr 2fr; gap:8px; padding:10px}
+  .descfoot .control{margin:0}
+
+  .report{flex:1 1 auto; overflow-y:auto; padding:16px}
+  .rscore{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px; text-align:center; font-weight:800; font-size:16px}
+  .rscore .home{color:var(--gblue-l)}  .rscore .away{color:var(--gred-l)}
+  .rscore b{font-size:34px; font-variant-numeric:tabular-nums; color:var(--chalk)}
+  .rtally{margin:14px 0}
+  .trow{display:flex; align-items:center; padding:7px 0; border-bottom:1px solid var(--turf-hi)}
+  .trow .tv{width:64px; text-align:center; font-weight:800; font-variant-numeric:tabular-nums}
+  .trow .tv.home{color:var(--gblue-l)}  .trow .tv.away{color:var(--gred-l)}
+  .trow .tl{flex:1; text-align:center; color:var(--chalk-dim); font-size:13px}
+  .tline{display:flex; flex-direction:column; gap:2px}
+  .tev{display:grid; grid-template-columns:auto auto 1fr; gap:8px; align-items:baseline; padding:6px 8px; border-left:3px solid transparent; font-size:13px}
+  .tev.home{border-left-color:var(--gblue)}  .tev.away{border-left-color:var(--gred)}
+  .tev .tt{font-variant-numeric:tabular-nums; color:var(--chalk-dim); font-weight:700}
+  .tev .ta{font-weight:700}
+  .tev .td{color:var(--chalk-dim)}
+
   /* password gate */
   #gate{position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
     padding:24px; background:radial-gradient(130% 90% at 50% -10%, #25563f, #1c402f 60%, #142f21)}
@@ -243,6 +321,20 @@ function weekName(k){
 }
 
 function newTraining(){ return { date: todayISO(), presentIds: [], exercises: [] }; }
+// Game mode: a live match-event log. Device-local only (never pushed to the cloud).
+function newGame(){
+  return {
+    teams: { home:"Blue", away:"Red" },
+    phase: "idle",          // idle | firstHalf | halfTime | secondHalf | ended
+    half: 1,
+    running: false,
+    segStart: null,         // epoch ms the current running segment began
+    accMs: 0,               // elapsed in the current half, excluding the running segment
+    h1Ms: 0, h2Ms: 0,       // total elapsed per half (incl. stoppage), filled at half-time / end
+    startedTs: 0, endedTs: 0,
+    events: []              // { id, team:"home"|"away", action, descriptors:[], half, mainMs, stoppageMs, ts }
+  };
+}
 function defaultState(){
   return {
     version:1,
@@ -252,7 +344,8 @@ function defaultState(){
     history: [],          // [{date, points:{pid:n}, exercises:[snapshot]}]
     training: newTraining(),
     activeExerciseId: null,
-    ui: { view:"now", standingsIncludeToday:true, period:"season",
+    game: newGame(),      // device-local, stripped before every cloud push
+    ui: { view:"now", mode:"training", standingsIncludeToday:true, period:"season",
           week: weekKey(todayISO()), month: monthKey(todayISO()) }
   };
 }
@@ -352,8 +445,8 @@ function showGate(msgText){
       let remote = null;
       if(r.status !== 404){ try{ remote = await r.json(); }catch(_){}}
       if(remote && (remote.updatedAt||0) >= (S.updatedAt||0)){
-        const ui = S.ui;
-        S = Object.assign(defaultState(), remote, { ui: Object.assign(defaultState().ui, ui) });
+        const ui = S.ui, game = S.game;
+        S = Object.assign(defaultState(), remote, { ui: Object.assign(defaultState().ui, ui), game: game });
         saveLocal();
       }
       syncState = "synced"; syncNote = "";
@@ -396,7 +489,7 @@ function afterSync(){
   lastSyncRender = syncState;
   if(S.ui.view==="exercises" || S.ui.view==="now") render();
 }
-function cloudBodyForPush(){ const c = JSON.parse(JSON.stringify(S)); delete c.ui; return c; }
+function cloudBodyForPush(){ const c = JSON.parse(JSON.stringify(S)); delete c.ui; delete c.game; return c; }
 
 let lastPullAt = 0;
 async function cloudPull(opts){
@@ -411,8 +504,8 @@ async function cloudPull(opts){
     const remote = await r.json();
     cloudReady = true;
     if(remote && (remote.updatedAt||0) > (S.updatedAt||0) && !pushPending){
-      const ui = S.ui;
-      S = Object.assign(defaultState(), remote, { ui: Object.assign(defaultState().ui, ui) });
+      const ui = S.ui, game = S.game;
+      S = Object.assign(defaultState(), remote, { ui: Object.assign(defaultState().ui, ui), game: game });
       saveLocal();
       syncState = "synced"; syncNote = "updated from another device";
       render();
@@ -985,6 +1078,7 @@ function showHelp(){
     '<h2>How scoring works</h2>'
     + '<p><b>During an exercise</b> tap a team to add a point (goals, rallies, whatever you count). <b>Hold</b> a team to type an exact score. The small &minus; fixes mistakes.</p>'
     + '<p>Line-ups only offers players marked <b>here today</b> on the Players tab. Tap a player&rsquo;s name in <b>Players</b> or <b>Standings</b> for their card &mdash; points, attendance, win record and a points trend.</p>'
+    + '<p><b>Game mode</b> (the Training / Game switch at the top) is a separate live match logger: a running clock that freezes at 45:00 / 90:00 with a stoppage timer, blue (left) and red (right) buttons for Shot / Corner / Foul / Penalty / Goal / Save, each opening a screen of descriptors you multi-select and <b>Save</b>. <b>End match</b> produces a shareable report image + CSV. Game data stays on this device only &mdash; it is not synced.</p>'
     + '<p><b>Finish exercise</b> locks it. The team with the highest score wins. Each player on a winning team earns <b>1 competition point</b> &mdash; or <b>3</b> if the exercise is flagged as the <span class="tag">END GAME</span>.</p>'
     + '<p>Draws: every top team wins by default. Use <b>Edit winner</b> to override.</p>'
     + '<p><b>Standings</b> has a <b>Week / Month / Season</b> switch. Week & Month show that period&rsquo;s points next to each player&rsquo;s season total; pick which week or month from the dropdown. Season = starting points + every banked training. The <b>incl. today</b> toggle adds the current unbanked training.</p>'
@@ -1221,19 +1315,360 @@ function viewStandings(){
   return h;
 }
 
+/* ================= GAME MODE — live match event log ================= */
+const G_ACTIONS = ["Shot","Corner","Foul","Penalty","Goal","Save"];
+const G_SHOT = ["On target","Off target","Woodwork","Blocked","Header","In-box","Out-of-box","Uncontested","Contested"];
+const G_DESC = {
+  Shot: G_SHOT,
+  Corner: ["Near post","Central box","Far post","Six-Yard box","Edge of the box"],
+  Foul: G_SHOT,
+  Penalty: ["Natural","Unnatural","Left","Right","Top","Bottom","Center","Goal","No goal","Out"],
+  Goal: ["Open Play","Direct transition","Set-piece","Rebound","Tap-In","Cutback finish","Solo","OG"],
+  Save: ["Deflection","Leg Save","Collapse","Clearance","Catch","Parried","Spilled","Rebound Conceded"]
+};
+const HALF_CAP = 45*60000;
+
+let gameScreen = "main";            // "main" | "descriptors"  (not persisted)
+let descCtx = null;                 // { action, team, sel:Set }
+let gameTimer = null;
+
+function saveGame(){ saveLocal(); }  // device-local only, never pushed
+function G(){ return S.game; }
+
+function halfElapsedMs(){
+  const g = G();
+  return g.accMs + (g.running && g.segStart ? Date.now() - g.segStart : 0);
+}
+function clockState(){
+  const e = halfElapsedMs();
+  const base = G().half === 2 ? HALF_CAP : 0;
+  return { mainMs: base + Math.min(e, HALF_CAP), stoppageMs: Math.max(0, e - HALF_CAP) };
+}
+function fmtClock(ms){
+  ms = Math.max(0, Math.floor(ms/1000));
+  const m = Math.floor(ms/60), s = ms%60;
+  return String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+}
+function fmtPlus(ms){
+  ms = Math.max(0, Math.floor(ms/1000));
+  return Math.floor(ms/60) + ":" + String(ms%60).padStart(2,"0");
+}
+function eventTimeText(ev){
+  return fmtClock(ev.mainMs) + (ev.stoppageMs ? " +" + fmtPlus(ev.stoppageMs) : "");
+}
+function goalCount(team){ return G().events.filter(e=>e.team===team && e.action==="Goal").length; }
+function gTally(team){
+  const ev = G().events.filter(e=>e.team===team);
+  const n = a => ev.filter(e=>e.action===a).length;
+  return {
+    shots:n("Shot"),
+    onTarget: ev.filter(e=>e.action==="Shot" && e.descriptors.includes("On target")).length,
+    corners:n("Corner"), fouls:n("Foul"), pens:n("Penalty"), goals:n("Goal"), saves:n("Save")
+  };
+}
+
+function gameTick(){
+  if(S.ui.mode!=="game" || !G().running){ clearInterval(gameTimer); gameTimer=null; return; }
+  const cs = clockState();
+  const mc = document.getElementById("matchClock");
+  const sp = document.getElementById("stoppage");
+  if(mc) mc.textContent = fmtClock(cs.mainMs);
+  if(sp){
+    if(cs.stoppageMs > 0){ sp.textContent = "+"+fmtPlus(cs.stoppageMs); sp.hidden=false; sp.classList.remove("leaving"); }
+    else sp.hidden = true;
+  }
+}
+function syncGameTimer(){
+  clearInterval(gameTimer); gameTimer=null;
+  if(S.ui.mode==="game" && G().running) gameTimer = setInterval(gameTick, 200);
+}
+function animateStoppageOutThen(cb){
+  const sp = document.getElementById("stoppage");
+  if(sp && !sp.hidden){ sp.classList.add("leaving"); setTimeout(cb, 380); }
+  else cb();
+}
+
+function controlPress(){
+  const g = G();
+  if(g.phase === "idle"){
+    const hn = (document.getElementById("homeName")||{}).value;
+    const an = (document.getElementById("awayName")||{}).value;
+    g.teams.home = (hn||"").trim() || "Blue";
+    g.teams.away = (an||"").trim() || "Red";
+    g.phase="firstHalf"; g.half=1; g.running=true; g.segStart=Date.now(); g.accMs=0; g.startedTs=Date.now();
+    saveGame(); renderGame();
+  }else if(g.phase === "firstHalf"){
+    g.running=false; g.accMs += g.segStart ? Date.now()-g.segStart : 0; g.segStart=null; g.h1Ms = g.accMs;
+    syncGameTimer();
+    animateStoppageOutThen(()=>{ g.phase="halfTime"; saveGame(); renderGame(); });
+  }else if(g.phase === "halfTime"){
+    g.phase="secondHalf"; g.half=2; g.running=true; g.segStart=Date.now(); g.accMs=0;
+    saveGame(); renderGame();
+  }else if(g.phase === "secondHalf"){
+    g.running=false; g.accMs += g.segStart ? Date.now()-g.segStart : 0; g.segStart=null; g.h2Ms = g.accMs; g.endedTs=Date.now();
+    syncGameTimer();
+    animateStoppageOutThen(()=>{ g.phase="ended"; gameScreen="main"; saveGame(); renderGame(); });
+  }
+}
+function controlLabel(){
+  return G().phase==="idle" ? "Start match"
+       : G().phase==="firstHalf" ? "Half time"
+       : G().phase==="halfTime" ? "Restart (2nd half)"
+       : G().phase==="secondHalf" ? "End match" : "";
+}
+function controlClass(){
+  return G().phase==="firstHalf" ? "amber" : G().phase==="secondHalf" ? "red" : "green";
+}
+
+function openDescriptors(action, team){ descCtx = { action, team, sel:new Set() }; gameScreen="descriptors"; renderGame(); }
+function cancelDescriptors(){ descCtx=null; gameScreen="main"; renderGame(); }
+function saveDescriptors(){
+  if(!descCtx) return;
+  const cs = clockState();
+  G().events.push({
+    id: uid(), team: descCtx.team, action: descCtx.action, descriptors:[...descCtx.sel],
+    half: G().half, mainMs: cs.mainMs, stoppageMs: cs.stoppageMs, ts: Date.now()
+  });
+  descCtx=null; gameScreen="main"; saveGame(); renderGame();
+}
+function undoLastEvent(){ if(G().events.length){ G().events.pop(); saveGame(); renderGame(); } }
+function newGameConfirm(){
+  if(confirm("Start a fresh match? This clears the current match log.")){
+    S.game = newGame(); gameScreen="main"; descCtx=null; saveGame(); renderGame();
+  }
+}
+
+function renderGame(){
+  const g = G(), cs = clockState();
+  let h = '<div class="gamewrap">';
+
+  // clock bar — always on
+  h += '<div class="clockbar">'
+     + '<button class="switch small on" id="toTraining" role="switch" aria-checked="true" aria-label="Back to training mode"><span class="knob"></span></button>'
+     + '<div class="clockmain"><span id="matchClock">'+fmtClock(cs.mainMs)+'</span>'
+     +   '<span id="stoppage" class="stoppage"'+((cs.stoppageMs>0 && g.running)?'':' hidden')+'>+'+fmtPlus(cs.stoppageMs)+'</span></div>'
+     + '<div class="teamrow">'
+     +   '<span class="tn home">'+esc(g.teams.home)+' <b>'+goalCount("home")+'</b></span>'
+     +   '<span class="tn away"><b>'+goalCount("away")+'</b> '+esc(g.teams.away)+'</span>'
+     + '</div></div>';
+
+  if(g.phase === "ended"){
+    h += renderReport();
+  }else if(gameScreen === "descriptors" && descCtx){
+    h += renderDescriptors();
+  }else if(g.phase === "idle"){
+    h += '<div class="gcenter">'
+       + '<p class="muted small" style="margin:0 0 4px">Name the teams, then start. The clock runs from kick-off.</p>'
+       + '<label class="small home-l">Left / blue</label>'
+       + '<input type="text" id="homeName" value="'+esc(g.teams.home)+'" maxlength="18">'
+       + '<label class="small away-l" style="margin-top:8px">Right / red</label>'
+       + '<input type="text" id="awayName" value="'+esc(g.teams.away)+'" maxlength="18">'
+       + '</div>';
+    h += gControl();
+  }else{
+    h += renderGameMain();
+    h += gControl();
+  }
+  h += '</div>';
+  document.getElementById("app").innerHTML = h;
+  wireGame();
+  syncGameTimer();
+}
+function gControl(){
+  return '<button class="control '+controlClass()+'" id="gControl">'+esc(controlLabel())+'</button>';
+}
+function renderGameMain(){
+  const g = G();
+  let h = '<div class="gamemain">';
+  ["home","away"].forEach(team=>{
+    h += '<div class="gside '+team+'">';
+    G_ACTIONS.forEach(a=>{
+      h += '<button class="gbtn" data-act="'+a+'" data-team="'+team+'">'+a+'</button>';
+    });
+    h += '</div>';
+  });
+  h += '</div>';
+  h += '<div class="undo">'+(g.events.length
+        ? '<button id="undoEv">&#8630; Undo last</button><span>'+g.events.length+' event'+(g.events.length===1?'':'s')+' logged</span>'
+        : '<span class="muted">No events yet</span>')+'</div>';
+  return h;
+}
+function renderDescriptors(){
+  const list = G_DESC[descCtx.action] || [];
+  const tname = descCtx.team==="home" ? G().teams.home : G().teams.away;
+  let h = '<div class="descwrap">'
+    + '<div class="deschead '+descCtx.team+'">'+esc(tname)+' &mdash; '+descCtx.action+'</div>'
+    + '<div class="descgrid">';
+  list.forEach(d=>{
+    h += '<button class="descchip" data-desc="'+esc(d)+'">'+esc(d)+'</button>';
+  });
+  h += '</div>'
+    + '<div class="descfoot">'
+    + '<button class="control grey" id="descCancel">Cancel</button>'
+    + '<button class="control green" id="descSave">Save</button>'
+    + '</div></div>';
+  return h;
+}
+function renderReport(){
+  const g = G(), t = gTally("home"), a = gTally("away");
+  const rows = [
+    ["Goals", t.goals, a.goals], ["Shots", t.shots, a.shots], ["On target", t.onTarget, a.onTarget],
+    ["Corners", t.corners, a.corners], ["Fouls", t.fouls, a.fouls],
+    ["Penalties", t.pens, a.pens], ["Saves", t.saves, a.saves]
+  ];
+  let h = '<div class="report">'
+    + '<div class="rscore"><span class="home">'+esc(g.teams.home)+'</span>'
+    +   '<b>'+t.goals+' &ndash; '+a.goals+'</b>'
+    +   '<span class="away">'+esc(g.teams.away)+'</span></div>'
+    + '<div class="rtally">';
+  rows.forEach(r=>{
+    h += '<div class="trow"><span class="tv home">'+r[1]+'</span><span class="tl">'+r[0]+'</span><span class="tv away">'+r[2]+'</span></div>';
+  });
+  h += '</div><div class="hr"></div><h3 style="font-size:14px;margin:0 0 6px">Timeline</h3>';
+  if(!g.events.length){ h += '<p class="muted small">No events were logged.</p>'; }
+  else{
+    h += '<div class="tline">';
+    g.events.slice().forEach(e=>{
+      h += '<div class="tev '+e.team+'">'
+         + '<span class="tt">'+eventTimeText(e)+'</span>'
+         + '<span class="ta">'+esc(e.action)+'</span>'
+         + '<span class="td">'+esc(e.descriptors.join(", "))+'</span></div>';
+    });
+    h += '</div>';
+  }
+  h += '<div class="hr"></div><div class="row wrap">'
+    + '<button class="btn pri" id="rImg">Match image</button>'
+    + '<button class="btn" id="rCsv">Match CSV</button>'
+    + '<span class="spacer"></span>'
+    + '<button class="btn ghost" id="rNew">New match</button>'
+    + '</div></div>';
+  return h;
+}
+
+function wireGame(){
+  const on = (id,fn)=>{ const el=document.getElementById(id); if(el) el.addEventListener("click",fn); };
+  on("toTraining", ()=>{ S.ui.mode="training"; saveUi(); render(); });
+  on("modeToggle", ()=>{ S.ui.mode="training"; saveUi(); render(); });
+  on("gControl", controlPress);
+  on("undoEv", undoLastEvent);
+  on("rNew", newGameConfirm);
+  on("rCsv", exportMatchCSV);
+  on("rImg", exportMatchImage);
+  on("descCancel", cancelDescriptors);
+  on("descSave", saveDescriptors);
+  document.querySelectorAll(".gbtn").forEach(b=> b.addEventListener("click", ()=> openDescriptors(b.dataset.act, b.dataset.team)));
+  document.querySelectorAll("[data-desc]").forEach(b=> b.addEventListener("click", ()=>{
+    const d = b.dataset.desc;
+    if(descCtx.sel.has(d)){ descCtx.sel.delete(d); b.classList.remove("on"); }
+    else { descCtx.sel.add(d); b.classList.add("on"); }
+  }));
+}
+
+/* ----- game exports ----- */
+function matchCSV(){
+  const g = G();
+  const rows = [["time","half","team","action","descriptors"]];
+  g.events.forEach(e=>{
+    rows.push([ eventTimeText(e), e.half, e.team==="home"?g.teams.home:g.teams.away, e.action, e.descriptors.join("|") ]);
+  });
+  return toCSV(rows);
+}
+function exportMatchCSV(){ shareFile("pusphaira_match_"+todayISO()+".csv", matchCSV()); }
+function matchReportCanvas(){
+  const g = G(), t = gTally("home"), a = gTally("away");
+  const F = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const W = 1080, padX = 60, headH = 300, rowH = 52, gap = 30, evH = 46;
+  const rows = [["Goals",t.goals,a.goals],["Shots",t.shots,a.shots],["On target",t.onTarget,a.onTarget],
+    ["Corners",t.corners,a.corners],["Fouls",t.fouls,a.fouls],["Penalties",t.pens,a.pens],["Saves",t.saves,a.saves]];
+  const H = headH + rows.length*rowH + gap + 56 + Math.max(g.events.length,1)*evH + 80;
+  const c = document.createElement("canvas"); c.width=W; c.height=H;
+  const x = c.getContext("2d");
+  const INK="#f4f7f2", DIM="#c6d6cc", RULE="#2f6650", BLUE="#5aa0ff", RED="#ff6b6b";
+  x.fillStyle="#1f4a37"; x.fillRect(0,0,W,H);
+  x.fillStyle="#183b2c"; x.fillRect(0,0,W,headH);
+  x.textBaseline="alphabetic"; x.textAlign="left";
+  x.fillStyle=DIM; x.font="600 24px "+F; x.fillText("PUSPHAIRA  ·  MATCH REPORT", padX, 66);
+  x.textAlign="center";
+  x.fillStyle=BLUE; x.font="800 44px "+F; x.fillText(g.teams.home, W*0.28, 150);
+  x.fillStyle=RED;  x.fillText(g.teams.away, W*0.72, 150);
+  x.fillStyle=INK;  x.font="800 90px "+F; x.fillText(t.goals+"  –  "+a.goals, W/2, 172);
+  x.fillStyle=DIM;  x.font="400 22px "+F;
+  const d = g.startedTs ? new Date(g.startedTs) : new Date();
+  x.fillText(d.toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"})
+     + "   ·   " + fmtClock(HALF_CAP) + (g.h1Ms>HALF_CAP?" +"+fmtPlus(g.h1Ms-HALF_CAP):"")
+     + " / " + fmtClock(HALF_CAP) + (g.h2Ms>HALF_CAP?" +"+fmtPlus(g.h2Ms-HALF_CAP):""), W/2, 236);
+  x.fillStyle=RULE; x.fillRect(0, headH-3, W, 3);
+
+  let y = headH + 20;
+  x.font="700 30px "+F;
+  rows.forEach((r,i)=>{
+    if(i%2===0){ x.fillStyle="rgba(255,255,255,.04)"; x.fillRect(0,y-34,W,rowH); }
+    x.textAlign="left";   x.fillStyle=BLUE; x.fillText(String(r[1]), padX+40, y);
+    x.textAlign="center"; x.fillStyle=DIM;  x.font="500 24px "+F; x.fillText(r[0], W/2, y);
+    x.font="700 30px "+F;
+    x.textAlign="right";  x.fillStyle=RED;  x.fillText(String(r[2]), W-padX-40, y);
+    y += rowH;
+  });
+  y += gap;
+  x.textAlign="left"; x.fillStyle=RULE; x.fillRect(padX, y-30, W-2*padX, 2);
+  x.fillStyle=DIM; x.font="700 22px "+F; x.fillText("TIMELINE", padX, y); y += 20;
+  x.font="500 24px "+F;
+  if(!g.events.length){ x.fillStyle=DIM; x.fillText("No events logged.", padX, y+20); }
+  g.events.forEach(e=>{
+    const col = e.team==="home" ? BLUE : RED;
+    x.fillStyle=col; x.fillRect(padX, y+2, 6, evH-14);
+    x.textAlign="left"; x.fillStyle=DIM; x.font="600 22px "+F;
+    x.fillText(eventTimeText(e), padX+20, y+22);
+    x.fillStyle=INK; x.font="700 24px "+F;
+    x.fillText(e.action, padX+150, y+22);
+    x.fillStyle=DIM; x.font="400 21px "+F;
+    let dd = e.descriptors.join(", ");
+    const maxW = W - padX - 340;
+    if(x.measureText(dd).width > maxW){ while(dd.length>1 && x.measureText(dd+"…").width>maxW) dd=dd.slice(0,-1); dd+="…"; }
+    x.fillText(dd, padX+330, y+22);
+    y += evH;
+  });
+  return c;
+}
+function exportMatchImage(){
+  const name = "pusphaira_match_"+todayISO()+".png";
+  matchReportCanvas().toBlob(async (blob)=>{
+    try{
+      const f = new File([blob], name, {type:"image/png"});
+      if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f], title:name}); return; }
+    }catch(e){ if(e && e.name==="AbortError") return; }
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a"); el.href=url; el.download=name; document.body.appendChild(el); el.click();
+    el.remove(); setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }, "image/png");
+}
+
 /* ---------- render + events ---------- */
+function modeBar(){
+  const g = S.ui.mode === "game";
+  return '<div class="modebar">'
+    + '<span class="'+(g?'':'lit')+'">Training</span>'
+    + '<button class="switch'+(g?' on':'')+'" id="modeToggle" role="switch" aria-checked="'+(g?'true':'false')+'" aria-label="Switch between training and game mode"><span class="knob"></span></button>'
+    + '<span class="'+(g?'lit':'')+'">Game</span>'
+    + '</div>';
+}
 function render(){
   document.body.classList.toggle("viewonly", !canEdit());
+  document.body.classList.toggle("gamemode", S.ui.mode === "game");
+  if(S.ui.mode === "game"){ renderGame(); return; }
   const app = document.getElementById("app");
   const v = S.ui.view;
-  app.innerHTML = v==="exercises" ? viewExercises()
-                : v==="players"   ? viewPlayers()
-                : v==="standings" ? viewStandings()
-                : viewNow();
+  app.innerHTML = modeBar() + (
+      v==="exercises" ? viewExercises()
+    : v==="players"   ? viewPlayers()
+    : v==="standings" ? viewStandings()
+    :                   viewNow());
   [...document.querySelectorAll(".nav button")].forEach(b=> b.classList.toggle("on", b.dataset.go===v));
   wire();
+  const mt = document.getElementById("modeToggle");
+  if(mt) mt.addEventListener("click", ()=>{ S.ui.mode = "game"; saveUi(); render(); });
 }
-function renderNow(){ if(S.ui.view==="now") render(); }
+function renderNow(){ if(S.ui.mode==="training" && S.ui.view==="now") render(); }
 
 // View / display prefs are device-local: write them here so they don't count as a
 // data change (no cloud push, no updatedAt bump).
