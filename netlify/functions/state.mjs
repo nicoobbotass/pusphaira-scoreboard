@@ -4,13 +4,20 @@
 //   PUT  /api/state  {..}   -> replaces the saved state (edit role only)
 // Last write wins. Fine for one coach using one device at a time.
 //
+// To keep Netlify function usage down, successful GETs are cached at Netlify's edge
+// for a short window (per x-pusphaira-key) and that cache is purged on every write,
+// so many devices polling cost ~1 invocation/minute for reads while a score change
+// still shows up immediately.
+//
 // Passwords are OPT-IN. Set these as Netlify environment variables to turn them on:
 //   PUSPHAIRA_EDIT_KEY  - full access (open the app, change scores). Required to enable auth.
 //   PUSPHAIRA_VIEW_KEY  - optional read-only access (open the app, see standings, no edits).
 // With no PUSPHAIRA_EDIT_KEY set, the endpoint stays open (no password).
 import { getStore } from "@netlify/blobs";
+import { purgeCache } from "@netlify/functions";
 
 const DOC = "state";
+const CACHE_TAG = "pusphaira-state";
 
 // Read env per-request (not at module load) so there's no init-timing ambiguity.
 function keys() {
@@ -48,7 +55,13 @@ export default async (req) => {
   try {
     if (req.method === "GET") {
       const data = await store.get(DOC, { type: "json" });
-      return json(data ?? null, 200, meta);
+      // Browser never caches (always revalidates); Netlify's edge holds it briefly and
+      // we purge on write, so it's never stale beyond a score change.
+      return json(data ?? null, 200, Object.assign({}, meta, {
+        "netlify-cdn-cache-control": "public, durable, s-maxage=60, stale-while-revalidate=300",
+        "cache-tag": CACHE_TAG,
+        "vary": "x-pusphaira-key"
+      }));
     }
     if (req.method === "PUT" || req.method === "POST") {
       if (role !== "edit") return json({ error: "read-only key" }, 403, meta);
@@ -57,6 +70,7 @@ export default async (req) => {
         return json({ error: "expected a JSON object" }, 400, meta);
       }
       await store.setJSON(DOC, body);
+      try { await purgeCache({ tags: [CACHE_TAG] }); } catch (_) {}
       return json({ ok: true, updatedAt: body.updatedAt ?? null }, 200, meta);
     }
     return json({ error: "method not allowed" }, 405, meta);
