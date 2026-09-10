@@ -183,7 +183,7 @@
     background:var(--redcard); color:#fff; font-weight:700; letter-spacing:.02em}
 
   /* ---------- mode switch ---------- */
-  .modebar{display:flex; align-items:center; gap:10px; justify-content:center; margin:-2px 0 14px; font-size:12px; font-weight:600; color:var(--chalk-dim)}
+  .modebar{display:flex; align-items:center; gap:10px; justify-content:center; margin:-2px 0 14px; font-size:12px; font-weight:600; color:var(--chalk-dim); cursor:pointer}
   .modebar .lit{color:var(--chalk)}
   .switch{width:46px; height:27px; border-radius:999px; background:var(--turf-lo); border:1px solid var(--turf-hi); padding:2px; flex:none; transition:background .15s; cursor:pointer}
   .switch .knob{display:block; width:21px; height:21px; border-radius:50%; background:var(--chalk); transition:transform .16s ease}
@@ -197,9 +197,12 @@
   body.gamemode .nav{display:none}
   body.gamemode #app{padding:0; max-width:none}
   .gamewrap{display:flex; flex-direction:column; min-height:100vh; min-height:100dvh; padding-bottom:var(--safe-b)}
+  .gamewrap > .modebar{flex:0 0 auto; margin:0; padding:9px 0 7px; background:var(--turf-2); border-bottom:1px solid var(--turf-hi)}
+  .gdiscard{position:absolute; left:12px; top:14px; z-index:1; font-size:12px; font-weight:700; color:var(--gred-l);
+    border:1px solid color-mix(in srgb, var(--gred) 45%, transparent); border-radius:999px; padding:.28em .85em; background:rgba(0,0,0,.18)}
+  .gdiscard:active{filter:brightness(1.2)}
   .clockbar{flex:0 0 auto; position:relative; text-align:center; padding:10px 14px 12px;
     background:var(--turf-2); border-bottom:1px solid var(--turf-hi)}
-  .clockbar .switch{position:absolute; left:12px; top:14px}
   .clockmain{display:flex; align-items:baseline; justify-content:center; gap:10px;
     font-variant-numeric:tabular-nums; font-weight:800; font-size:44px; line-height:1; letter-spacing:.02em; color:var(--chalk)}
   .stoppage{display:inline-block; max-width:170px; overflow:hidden; white-space:nowrap;
@@ -1437,20 +1440,28 @@ function saveDescriptors(){
   descCtx=null; gameScreen="main"; saveGame(); renderGame();
 }
 function undoLastEvent(){ if(G().events.length){ G().events.pop(); saveGame(); renderGame(); } }
-function newGameConfirm(){
-  if(confirm("Start a fresh match? This clears the current match log.")){
-    S.game = newGame(); gameScreen="main"; descCtx=null; saveGame(); renderGame();
-  }
+function reportNewMatch(){                     // from the ended report — no confirm needed
+  const prevAway = G().teams.away;
+  S.game = newGame();
+  if(prevAway && prevAway !== "Red") S.game.teams.away = prevAway;
+  gameScreen="main"; descCtx=null; focusAway=true; saveGame(); renderGame();
 }
+function discardMatch(){                       // abandon a match in progress
+  const g = G();
+  if((g.events.length || g.phase !== "idle") &&
+     !confirm("Discard this match? The event log will be deleted.")) return;
+  S.game = newGame(); gameScreen="main"; descCtx=null; saveGame(); renderGame();
+}
+let focusAway = false;
 
 function renderGame(){
   const g = G(), cs = clockState();
   g.teams.home = "Pusphaira";                 // blue / left is always Pusphaira
-  let h = '<div class="gamewrap">';
+  let h = '<div class="gamewrap">' + modeBar();
 
   // clock bar — always on
   h += '<div class="clockbar">'
-     + '<button class="switch small on" id="toTraining" role="switch" aria-checked="true" aria-label="Back to training mode"><span class="knob"></span></button>'
+     + (g.phase!=="idle" && g.phase!=="ended" ? '<button class="gdiscard" id="discardMatch">Discard</button>' : '')
      + '<div class="clockmain"><span id="matchClock">'+fmtClock(cs.mainMs)+'</span>'
      +   '<span id="stoppage" class="stoppage"'+((cs.stoppageMs>0 && g.running)?'':' hidden')+'>+'+fmtPlus(cs.stoppageMs)+'</span></div>'
      + '<div class="teamrow">'
@@ -1460,6 +1471,7 @@ function renderGame(){
 
   if(g.phase === "ended"){
     h += renderReport();
+    h += '<button class="control green" id="newMatch">Start a new match</button>';
   }else if(gameScreen === "descriptors" && descCtx){
     h += renderDescriptors();
   }else if(g.phase === "idle"){
@@ -1477,6 +1489,7 @@ function renderGame(){
   document.getElementById("app").innerHTML = h;
   wireGame();
   syncGameTimer();
+  if(focusAway){ focusAway=false; setTimeout(()=>{ const el=document.getElementById("awayName"); if(el){ el.focus(); el.select(); } }, 60); }
 }
 function gControl(){
   return '<button class="control '+controlClass()+'" id="gControl">'+esc(controlLabel())+'</button>';
@@ -1563,22 +1576,22 @@ function renderReport(){
     });
     h += '</div>';
   }
-  h += '<div class="hr"></div><div class="row wrap">'
+  h += '<div class="hr"></div><p class="muted small" style="margin:0 0 8px">Save the report before starting a new match &mdash; game data lives on this device only.</p>'
+    + '<div class="row wrap">'
     + '<button class="btn pri" id="rImg">Match image</button>'
     + '<button class="btn" id="rCsv">Match CSV</button>'
-    + '<span class="spacer"></span>'
-    + '<button class="btn ghost" id="rNew">New match</button>'
     + '</div></div>';
   return h;
 }
 
 function wireGame(){
   const on = (id,fn)=>{ const el=document.getElementById(id); if(el) el.addEventListener("click",fn); };
-  on("toTraining", ()=>{ S.ui.mode="training"; saveUi(); render(); });
-  on("modeToggle", ()=>{ S.ui.mode="training"; saveUi(); render(); });
+  const mb = document.querySelector(".gamewrap > .modebar");
+  if(mb) mb.addEventListener("click", ()=>{ S.ui.mode="training"; saveUi(); render(); });
   on("gControl", controlPress);
   on("undoEv", undoLastEvent);
-  on("rNew", newGameConfirm);
+  on("discardMatch", discardMatch);
+  on("newMatch", reportNewMatch);
   on("rCsv", exportMatchCSV);
   on("rImg", exportMatchImage);
   on("descCancel", cancelDescriptors);
@@ -1695,8 +1708,8 @@ function render(){
     :                   viewNow());
   [...document.querySelectorAll(".nav button")].forEach(b=> b.classList.toggle("on", b.dataset.go===v));
   wire();
-  const mt = document.getElementById("modeToggle");
-  if(mt) mt.addEventListener("click", ()=>{ S.ui.mode = "game"; saveUi(); render(); });
+  const mb = document.querySelector("#app > .modebar");
+  if(mb) mb.addEventListener("click", ()=>{ S.ui.mode = "game"; saveUi(); render(); });
 }
 function renderNow(){ if(S.ui.mode==="training" && S.ui.view==="now") render(); }
 
