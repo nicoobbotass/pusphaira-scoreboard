@@ -594,8 +594,10 @@ function winnersOf(ex){
   const max = Math.max(...ex.teams.map(t=>t.score));
   return ex.teams.filter(t=>t.score===max).map(t=>t.id);
 }
+const ATTENDANCE_POINT = 1;   // every player marked "here" earns this, just for showing up
 function trainingPoints(){
   const m = {}; S.roster.forEach(p=> m[p.id]=0);
+  T().presentIds.forEach(pid=>{ if(pid in m) m[pid] += ATTENDANCE_POINT; });
   T().exercises.forEach(ex=>{
     if(!ex.finished) return;
     const w = new Set(winnersOf(ex));
@@ -606,13 +608,13 @@ function trainingPoints(){
 }
 function seasonTotals(includeToday){
   const m = {}; S.roster.forEach(p=> m[p.id] = Number(S.startingPoints[p.id]||0));
-  S.history.forEach(h=>{ for(const pid in h.points) if(pid in m) m[pid]+=h.points[pid]; });
+  S.history.forEach(h=>{ const hp=bankedPoints(h); for(const pid in hp) if(pid in m) m[pid]+=hp[pid]; });
   if(includeToday){ const c=trainingPoints(); for(const pid in c) m[pid]+=c[pid]; }
   return m;
 }
 function periodTotals(keyFn, key, includeToday){
   const m = {}; S.roster.forEach(p=> m[p.id]=0);
-  S.history.forEach(h=>{ if(keyFn(h.date)!==key) return; for(const pid in h.points) if(pid in m) m[pid]+=h.points[pid]; });
+  S.history.forEach(h=>{ if(keyFn(h.date)!==key) return; const hp=bankedPoints(h); for(const pid in hp) if(pid in m) m[pid]+=hp[pid]; });
   if(includeToday && keyFn(T().date)===key){ const c=trainingPoints(); for(const pid in c) m[pid]+=c[pid]; }
   return m;
 }
@@ -633,6 +635,17 @@ function attendedSet(h){
   const s = new Set(h.presentIds || []);
   (h.exercises || []).forEach(ex => ex.teams.forEach(t => t.playerIds.forEach(p => s.add(p))));
   return s;
+}
+// A banked training's points, with the attendance point added on top for entries that
+// predate that rule (attendanceIncluded is set on every training banked after it shipped,
+// so this never double-counts). Computed fresh every time — nothing is rewritten, so it's
+// safe across devices with no migration step and no risk of applying it twice.
+function bankedPoints(h){
+  const out = Object.assign({}, h.points || {});
+  if(!h.attendanceIncluded){
+    attendedSet(h).forEach(pid=>{ out[pid] = (out[pid]||0) + ATTENDANCE_POINT; });
+  }
+  return out;
 }
 function seasonAttendance(){
   const m = {}; S.roster.forEach(p => m[p.id] = 0);
@@ -658,7 +671,7 @@ function prevTotalsFor(period){
   if(period === "season"){
     if(!S.history.length) return null;
     const m = {}; S.roster.forEach(p => m[p.id] = Number(S.startingPoints[p.id]||0));
-    S.history.slice(0,-1).forEach(h => { for(const pid in h.points) if(pid in m) m[pid]+=h.points[pid]; });
+    S.history.slice(0,-1).forEach(h => { const hp=bankedPoints(h); for(const pid in hp) if(pid in m) m[pid]+=hp[pid]; });
     return m;
   }
   const keys = period === "week" ? historyWeeks() : historyMonths();   // newest-first
@@ -771,6 +784,10 @@ function summaryCSV(){
 }
 function detailCSV(){
   const rows = [["date","exercise","end_game","team","player","team_final_score","result","competition_points"]];
+  const present = new Set(T().presentIds);
+  S.roster.filter(p=>present.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    rows.push([T().date, "Attendance", "no", "", p.name, "", "present", ATTENDANCE_POINT]);
+  });
   T().exercises.filter(e=>e.finished).forEach(ex=>{
     const w = new Set(winnersOf(ex)), pts = pointsForWin(ex);
     ex.teams.forEach(t=>{
@@ -878,7 +895,7 @@ function standingsCanvas(mode){                                  // mode: "week"
   x.textAlign = "left"; x.textBaseline = "alphabetic";
   x.fillStyle = RULE; x.fillRect(padX, H-62, W-2*padX, 2);
   x.fillStyle = DIM; x.font = "400 22px "+F;
-  x.fillText(players.length+" players    win 1 pt    end game 3 pts", padX, H-28);
+  x.fillText(players.length+" players    here 1 pt    win 1 pt    end game 3 pts", padX, H-28);
   return c;
 }
 function exportStandingsImage(mode){
@@ -922,7 +939,7 @@ function finishTraining(){
   if(!anyFinished){ alert("Finish at least one exercise first."); return; }
   if(!confirm("End training for "+T().date+"?\n\nThis banks today's points into the season totals and starts a fresh training. Export your CSV first if you need it.")) return;
   const pts = trainingPoints();
-  S.history.push({ date:T().date, points:pts, presentIds:T().presentIds.slice(), exercises: JSON.parse(JSON.stringify(T().exercises)) });
+  S.history.push({ date:T().date, points:pts, presentIds:T().presentIds.slice(), attendanceIncluded:true, exercises: JSON.parse(JSON.stringify(T().exercises)) });
   S.training = newTraining();
   S.activeExerciseId = null;
   S.ui.view = "now";
@@ -1041,7 +1058,7 @@ function showPlayerCard(pid){
 
   let cum = Number(S.startingPoints[pid]||0);
   const series = [cum];
-  S.history.forEach(h => { cum += (h.points[pid]||0); series.push(cum); });
+  S.history.forEach(h => { cum += (bankedPoints(h)[pid]||0); series.push(cum); });
   const todayPts = trainingPoints()[pid] || 0;
   if(todayPts){ series.push(cum + todayPts); }
 
@@ -1050,7 +1067,7 @@ function showPlayerCard(pid){
       const on = ex.teams.find(t => t.playerIds.includes(pid));
       return on && new Set(winnersOf(ex)).has(on.id);
     }).length;
-    return { date: h.date, got: h.points[pid]||0, won };
+    return { date: h.date, got: bankedPoints(h)[pid]||0, won };
   });
 
   let h = '<h2>'+esc(p.name)+'</h2>';
@@ -1086,6 +1103,7 @@ function showHelp(){
     + '<p>Line-ups only offers players marked <b>here today</b> on the Players tab. Tap a player&rsquo;s name in <b>Players</b> or <b>Standings</b> for their card &mdash; points, attendance, win record and a points trend.</p>'
     + '<p><b>Game mode</b> (the Training / Game switch at the top) is a separate live match logger: a running clock that freezes at 45:00 / 90:00 with a stoppage timer, blue (left) and red (right) buttons for Shot / Corner / Foul / Penalty / Goal / Save, each opening a screen of descriptors you multi-select and <b>Save</b>. <b>End match</b> produces a shareable report image + CSV. Game data stays on this device only &mdash; it is not synced.</p>'
     + '<p><b>Finish exercise</b> locks it. The team with the highest score wins. Each player on a winning team earns <b>1 competition point</b> &mdash; or <b>3</b> if the exercise is flagged as the <span class="tag">END GAME</span>.</p>'
+    + '<p>Every player marked <b>here</b> on the Players tab also earns <b>1 attendance point</b>, on top of anything they win &mdash; it shows up immediately in the totals and is banked for good when you <b>End training</b>.</p>'
     + '<p>Draws: every top team wins by default. Use <b>Edit winner</b> to override.</p>'
     + '<p><b>Standings</b> has a <b>Week / Month / Season</b> switch. Week & Month show that period&rsquo;s points next to each player&rsquo;s season total; pick which week or month from the dropdown. Season = starting points + every banked training. The <b>incl. today</b> toggle adds the current unbanked training.</p>'
     + '<p><b>End training</b> banks today&rsquo;s points into the month and season totals and clears the exercise list for next time.</p>'
@@ -1231,7 +1249,7 @@ function viewExercises(){
 function viewPlayers(){
   const E = canEdit();
   let h = '<div class="bar"><h1>Players</h1>'+(E?'<button class="btn sm pri" id="addP">+ Add</button>':'')+'</div>';
-  if(E) h += '<div class="card small muted">Tick who is here today (used for auto-split and shown in the export). '
+  if(E) h += '<div class="card small muted">Tick who is here today &mdash; worth <b>1 attendance point</b> on its own, plus used for auto-split and shown in the export. '
      + '&ldquo;Start&rdquo; = points this player already had before you began using this app. Tap a name for their card.</div>';
   else  h += '<div class="card small muted">Tap a name for that player&rsquo;s card.</div>';
   if(!S.roster.length){
