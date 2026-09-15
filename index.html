@@ -595,6 +595,7 @@ function winnersOf(ex){
   return ex.teams.filter(t=>t.score===max).map(t=>t.id);
 }
 const ATTENDANCE_POINT = 1;   // every player marked "here" earns this, just for showing up
+const NEUTRAL_POINT = 0.5;    // a player marked neutral for an exercise earns this, win or lose
 function trainingPoints(){
   const m = {}; S.roster.forEach(p=> m[p.id]=0);
   T().presentIds.forEach(pid=>{ if(pid in m) m[pid] += ATTENDANCE_POINT; });
@@ -603,6 +604,7 @@ function trainingPoints(){
     const w = new Set(winnersOf(ex));
     const pts = pointsForWin(ex);
     ex.teams.forEach(t=>{ if(w.has(t.id)) t.playerIds.forEach(pid=>{ if(pid in m) m[pid]+=pts; }); });
+    (ex.neutralIds||[]).forEach(pid=>{ if(pid in m) m[pid]+=NEUTRAL_POINT; });
   });
   return m;
 }
@@ -627,13 +629,16 @@ function historyKeys(keyFn, current){
 }
 function historyMonths(){ return historyKeys(monthKey, S.ui.month); }
 function historyWeeks(){ return historyKeys(weekKey, S.ui.week); }
-function assignedInExercise(ex){ const s=new Set(); ex.teams.forEach(t=>t.playerIds.forEach(p=>s.add(p))); return s; }
+function assignedInExercise(ex){ const s=new Set(); ex.teams.forEach(t=>t.playerIds.forEach(p=>s.add(p))); (ex.neutralIds||[]).forEach(p=>s.add(p)); return s; }
 
 /* ---------- attendance, record, movement ---------- */
 // Who was at a banked training: explicit presentIds, else anyone put on a team that day.
 function attendedSet(h){
   const s = new Set(h.presentIds || []);
-  (h.exercises || []).forEach(ex => ex.teams.forEach(t => t.playerIds.forEach(p => s.add(p))));
+  (h.exercises || []).forEach(ex => {
+    ex.teams.forEach(t => t.playerIds.forEach(p => s.add(p)));
+    (ex.neutralIds||[]).forEach(p => s.add(p));
+  });
   return s;
 }
 // A banked training's points, with the attendance point added on top for entries that
@@ -729,7 +734,7 @@ let flashTeam = null;   // team id whose score should flip on the next Now rende
 function addExercise(){
   if(!canEdit()) return;
   const n = T().exercises.length + 1;
-  const ex = { id:uid(), name:"Exercise "+n, endGame:false, finished:false, manualWinnerIds:[], teams:[] };
+  const ex = { id:uid(), name:"Exercise "+n, endGame:false, finished:false, manualWinnerIds:[], neutralIds:[], teams:[] };
   addTeam(ex); addTeam(ex);
   T().exercises.push(ex);
   S.activeExerciseId = ex.id;
@@ -761,6 +766,7 @@ function autoSplit(ex, n){
   while(ex.teams.length < n) addTeam(ex);
   ex.teams = ex.teams.slice(0, Math.max(2,n));
   ex.teams.forEach(t=> t.playerIds = []);
+  ex.neutralIds = (ex.neutralIds||[]).filter(pid=>!pool.includes(pid));
   pool.forEach((pid,idx)=> ex.teams[idx % ex.teams.length].playerIds.push(pid));
   save(); render();
 }
@@ -796,6 +802,9 @@ function detailCSV(){
         rows.push([T().date, ex.name, ex.endGame?"yes":"no", t.name,
           pid?playerName(pid):"(no players)", t.score, won?"win":"loss", won?pts:0]);
       });
+    });
+    (ex.neutralIds||[]).forEach(pid=>{
+      rows.push([T().date, ex.name, ex.endGame?"yes":"no", "Neutral", playerName(pid), "", "neutral", NEUTRAL_POINT]);
     });
   });
   return toCSV(rows);
@@ -895,7 +904,7 @@ function standingsCanvas(mode){                                  // mode: "week"
   x.textAlign = "left"; x.textBaseline = "alphabetic";
   x.fillStyle = RULE; x.fillRect(padX, H-62, W-2*padX, 2);
   x.fillStyle = DIM; x.font = "400 22px "+F;
-  x.fillText(players.length+" players    here 1 pt    win 1 pt    end game 3 pts", padX, H-28);
+  x.fillText(players.length+" players    here 1 pt    neutral 0.5 pt    win 1 pt    end game 3 pts", padX, H-28);
   return c;
 }
 function exportStandingsImage(mode){
@@ -987,6 +996,18 @@ function editLineups(exId, keepScroll){
     });
     h += '</div></div>';
   });
+  h += '<div class="card" style="border-left:6px solid #7a8a82">'
+     + '<div class="row" style="margin-bottom:8px"><b class="grow">Neutral</b></div>'
+     + '<p class="small muted" style="margin:0 0 8px">Not on either team &mdash; earns '+NEUTRAL_POINT+' pt just for taking part, win or lose.</p>'
+     + '<div class="chips">';
+  if(!pickable.length) h += '<span class="muted small">No players to pick.</span>';
+  pickable.forEach(p=>{
+    const onNeutral = (ex.neutralIds||[]).includes(p.id);
+    const onOther = !onNeutral && assigned.has(p.id);
+    const away = present.size > 0 && !present.has(p.id);
+    h += '<button class="chip '+(onNeutral?'on':'')+(onOther?' dim':'')+(away?' away':'')+'" data-ntg="'+p.id+'">'+esc(p.name)+(away?' (away)':'')+'</button>';
+  });
+  h += '</div></div>';
   h += '<button class="btn pri" data-act="close" style="width:100%">Done</button>';
   openModal(h);
   const sheet = document.querySelector("#modal .sheet");
@@ -1001,21 +1022,49 @@ function editLineups(exId, keepScroll){
     if(b.dataset.act==="auto4"){ autoSplit(ex,4); editLineups(exId, sc); return; }
     if(b.dataset.ren){ const t=ex.teams.find(x=>x.id===b.dataset.ren); const n=prompt("Team name", t.name); if(n){ t.name=n.trim(); save(); editLineups(exId, sc);} return; }
     if(b.dataset.delt){ ex.teams=ex.teams.filter(x=>x.id!==b.dataset.delt); save(); editLineups(exId, sc); return; }
+    // Toggling either kind of chip is done in place — no rebuild, so the sheet does NOT
+    // scroll back to the top. A player is on at most one team OR neutral, never both.
+    const syncChipsFor = (pid) => {
+      const onTeam = ex.teams.find(x=>x.playerIds.includes(pid));
+      const onNeutral = (ex.neutralIds||[]).includes(pid);
+      const somewhere = !!onTeam || onNeutral;
+      sheet.querySelectorAll('[data-tg]').forEach(el=>{
+        const parts = el.dataset.tg.split("|");
+        if(parts[1] !== pid) return;
+        const isOn = !!onTeam && parts[0] === onTeam.id;
+        el.classList.toggle("on", isOn);
+        el.classList.toggle("dim", somewhere && !isOn);
+      });
+      sheet.querySelectorAll('[data-ntg]').forEach(el=>{
+        if(el.dataset.ntg !== pid) return;
+        el.classList.toggle("on", onNeutral);
+        el.classList.toggle("dim", somewhere && !onNeutral);
+      });
+    };
     if(b.dataset.tg){
-      // Toggle in place — no rebuild, so the sheet does NOT scroll back to the top.
       const [tid,pid]=b.dataset.tg.split("|");
       const t=ex.teams.find(x=>x.id===tid);
       const wasOn = t.playerIds.includes(pid);
       if(wasOn){ t.playerIds=t.playerIds.filter(x=>x!==pid); }
-      else{ ex.teams.forEach(x=> x.playerIds=x.playerIds.filter(y=>y!==pid)); t.playerIds.push(pid); }
+      else{
+        ex.teams.forEach(x=> x.playerIds=x.playerIds.filter(y=>y!==pid));
+        ex.neutralIds = (ex.neutralIds||[]).filter(y=>y!==pid);
+        t.playerIds.push(pid);
+      }
       save();
-      const assignedTeam = wasOn ? null : tid;
-      sheet.querySelectorAll('[data-tg]').forEach(el=>{
-        const parts = el.dataset.tg.split("|");
-        if(parts[1] !== pid) return;
-        el.classList.toggle("on", parts[0] === assignedTeam);
-        el.classList.toggle("dim", assignedTeam !== null && parts[0] !== assignedTeam);
-      });
+      syncChipsFor(pid);
+    }
+    if(b.dataset.ntg){
+      const pid = b.dataset.ntg;
+      ex.neutralIds = ex.neutralIds || [];
+      const wasNeutral = ex.neutralIds.includes(pid);
+      if(wasNeutral){ ex.neutralIds = ex.neutralIds.filter(x=>x!==pid); }
+      else{
+        ex.teams.forEach(x=> x.playerIds = x.playerIds.filter(y=>y!==pid));
+        ex.neutralIds.push(pid);
+      }
+      save();
+      syncChipsFor(pid);
     }
   });
 }
@@ -1102,7 +1151,7 @@ function showHelp(){
     + '<p><b>During an exercise</b> tap a team to add a point (goals, rallies, whatever you count). <b>Hold</b> a team to type an exact score. The small &minus; fixes mistakes.</p>'
     + '<p>Line-ups only offers players marked <b>here today</b> on the Players tab. Tap a player&rsquo;s name in <b>Players</b> or <b>Standings</b> for their card &mdash; points, attendance, win record and a points trend.</p>'
     + '<p><b>Game mode</b> (the Training / Game switch at the top) is a separate live match logger: a running clock that freezes at 45:00 / 90:00 with a stoppage timer, blue (left) and red (right) buttons for Shot / Corner / Foul / Penalty / Goal / Save, each opening a screen of descriptors you multi-select and <b>Save</b>. <b>End match</b> produces a shareable report image + CSV. Game data stays on this device only &mdash; it is not synced.</p>'
-    + '<p><b>Finish exercise</b> locks it. The team with the highest score wins. Each player on a winning team earns <b>1 competition point</b> &mdash; or <b>3</b> if the exercise is flagged as the <span class="tag">END GAME</span>.</p>'
+    + '<p><b>Finish exercise</b> locks it. The team with the highest score wins. Each player on a winning team earns <b>1 competition point</b> &mdash; or <b>3</b> if the exercise is flagged as the <span class="tag">END GAME</span>. In <b>Line-ups</b>, a player can instead be marked <b>Neutral</b> &mdash; not on either team, worth a flat <b>0.5 points</b> for that exercise regardless of who wins.</p>'
     + '<p>Every player marked <b>here</b> on the Players tab also earns <b>1 attendance point</b>, on top of anything they win &mdash; it shows up immediately in the totals and is banked for good when you <b>End training</b>.</p>'
     + '<p>Draws: every top team wins by default. Use <b>Edit winner</b> to override.</p>'
     + '<p><b>Standings</b> has a <b>Week / Month / Season</b> switch. Week & Month show that period&rsquo;s points next to each player&rsquo;s season total; pick which week or month from the dropdown. Season = starting points + every banked training. The <b>incl. today</b> toggle adds the current unbanked training.</p>'
@@ -1165,6 +1214,12 @@ function viewNow(){
   });
   h += '</div>';
   flashTeam = null;
+
+  if((ex.neutralIds||[]).length){
+    const names = ex.neutralIds.map(playerName).join(", ");
+    h += '<div class="small muted" style="margin-top:8px">Neutral: <b>'+esc(names)+'</b>'
+       + (ex.finished?' &mdash; +'+NEUTRAL_POINT+' pt each':' (worth +'+NEUTRAL_POINT+' pt each when finished)')+'</div>';
+  }
 
   if(E || ex.finished){
     h += '<div class="row wrap" style="margin-top:12px">';
